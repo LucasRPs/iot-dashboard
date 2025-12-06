@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart } from 'primereact/chart';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
@@ -28,13 +28,25 @@ const SensorDetailView = ({ beacon, history, chartOptions, messageLog, settings,
         setIsEditing(false);
     };
 
-    // Build chart data from messageLog (all historical data) filtered by sensor MAC
-    // Use `ts` if present and sort by it to provide stable ordering
-    const { labels, tempData, humData } = (() => {
-        const logs = (messageLog || []).filter(log => log.mac === beacon.mac).slice();
-        logs.sort((a, b) => {
-            const ta = a.ts ? new Date(a.ts).getTime() : a.timestamp ? new Date(a.timestamp).getTime() : 0;
-            const tb = b.ts ? new Date(b.ts).getTime() : b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    // Chart period state: '1h', '24h', '7d'
+    const [period, setPeriod] = useState('24h');
+
+    // Build chart data from messageLog filtered by sensor MAC and selected period
+    const { labels, tempData, humData } = useMemo(() => {
+        const periodMs = period === '1h' ? 1 * 60 * 60 * 1000 : period === '7d' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - periodMs;
+
+        const allLogs = (messageLog || []).filter(log => log.mac === beacon.mac).slice();
+
+        // Keep only logs within the selected period (prefer `ts` ISO, fallback to `timestamp` parse)
+        const recent = allLogs.filter(log => {
+            const t = log.ts ? Date.parse(log.ts) : (log.timestamp ? Date.parse(log.timestamp) : NaN);
+            return !isNaN(t) && t >= cutoff;
+        });
+
+        recent.sort((a, b) => {
+            const ta = a.ts ? Date.parse(a.ts) : (a.timestamp ? Date.parse(a.timestamp) : 0);
+            const tb = b.ts ? Date.parse(b.ts) : (b.timestamp ? Date.parse(b.timestamp) : 0);
             return ta - tb;
         });
 
@@ -42,15 +54,16 @@ const SensorDetailView = ({ beacon, history, chartOptions, messageLog, settings,
         const tempData = [];
         const humData = [];
 
-        logs.forEach(log => {
+        recent.forEach(log => {
             const tsVal = log.ts || log.timestamp || '';
-            labels.push(tsVal ? new Date(tsVal).toLocaleTimeString('pt-BR') : '');
+            // Use time-only for 1h/24h, full date for 7d
+            labels.push(tsVal ? (period === '7d' ? new Date(tsVal).toLocaleString('pt-BR') : new Date(tsVal).toLocaleTimeString('pt-BR')) : '');
             tempData.push(log.temp || 0);
             humData.push(log.hum || 0);
         });
 
         return { labels, tempData, humData };
-    })();
+    }, [messageLog, beacon.mac, period]);
 
     const chartData = {
         labels,
@@ -131,9 +144,9 @@ const SensorDetailView = ({ beacon, history, chartOptions, messageLog, settings,
                 <div className="flex justify-content-between align-items-center mb-4">
                     <h3 className="text-sm font-bold text-slate-700">Histórico de Temperatura</h3>
                     <div className="flex gap-2">
-                        <span className="text-xs font-bold text-slate-400 cursor-pointer hover:text-indigo-600">1H</span>
-                        <span className="text-xs font-bold text-indigo-600 cursor-pointer">24H</span>
-                        <span className="text-xs font-bold text-slate-400 cursor-pointer hover:text-indigo-600">7D</span>
+                        <button type="button" onClick={() => setPeriod('1h')} className={`text-xs font-bold ${period === '1h' ? 'text-indigo-600' : 'text-slate-400'} cursor-pointer px-2 py-1 rounded`}>1H</button>
+                        <button type="button" onClick={() => setPeriod('24h')} className={`text-xs font-bold ${period === '24h' ? 'text-indigo-600' : 'text-slate-400'} cursor-pointer px-2 py-1 rounded`}>24H</button>
+                        <button type="button" onClick={() => setPeriod('7d')} className={`text-xs font-bold ${period === '7d' ? 'text-indigo-600' : 'text-slate-400'} cursor-pointer px-2 py-1 rounded`}>7D</button>
                     </div>
                 </div>
                 <div className="flex-grow-1 relative">
