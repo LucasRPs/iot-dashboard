@@ -1,13 +1,13 @@
 import React from 'react';
 
-const OFFLINE_THRESHOLD_MS = 20000;
+const OFFLINE_THRESHOLD_MS = 100000;
 
 const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
     const totalSensors = beacons.length;
     const activeSensors = beacons.filter(b => (Date.now() - new Date(b.lastSeen).getTime()) < OFFLINE_THRESHOLD_MS).length;
-    const lowBatteryCount = beacons.filter(b => b.battery_pct <= settings.lowBattery).length;
-    const tempAlertCount = beacons.filter(b => b.temperature_c > settings.tempAlert && b.temperature_c <= settings.tempCritical).length;
-    const tempCriticalCount = beacons.filter(b => b.temperature_c > settings.tempCritical).length;
+    const lowBatteryCount = beacons.filter(b => b.batt <= settings.lowBattery).length;
+    const tempAlertCount = beacons.filter(b => b.temp > settings.tempAlert && b.temp <= settings.tempCritical).length;
+    const tempCriticalCount = beacons.filter(b => b.temp > settings.tempCritical).length;
 
     return (
         <div className="fade-in h-full">
@@ -89,8 +89,8 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                             </div>
                             <div className="grid">
                                 {sectorBeacons.map(beacon => {
-                                    const isCritical = beacon.temperature_c > settings.tempCritical;
-                                    const isAlert = beacon.temperature_c > settings.tempAlert && !isCritical;
+                                    const isCritical = beacon.temp > settings.tempCritical;
+                                    const isAlert = beacon.temp > settings.tempAlert && !isCritical;
                                     const isOffline = (Date.now() - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
 
                                     return (
@@ -114,17 +114,17 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                                                     <div>
                                                         <span className="text-label block mb-1">Temperatura</span>
                                                         <span className={`text-2xl font-bold text-value ${isCritical ? 'text-rose-600' : isAlert ? 'text-orange-600' : 'text-slate-700'}`}>
-                                                            {beacon.temperature_c}°C
+                                                            {beacon.temp}°C
                                                         </span>
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="flex align-items-center gap-1 justify-content-end text-slate-500 mb-1">
                                                             <i className="pi pi-tint text-[10px]"></i>
-                                                            <span className="text-xs font-bold">{beacon.humidity_pct}%</span>
+                                                            <span className="text-xs font-bold">Umidade {beacon.hum}%</span>
                                                         </div>
                                                         <div className="flex align-items-center gap-1 justify-content-end text-slate-500">
                                                             <i className="pi pi-battery text-[10px]"></i>
-                                                            <span className="text-xs font-bold">{beacon.battery_pct}%</span>
+                                                            <span className="text-xs font-bold">Bateria {beacon.batt}%</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -153,7 +153,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                                             <span className="status-badge neutral">Novo</span>
                                         </div>
                                         <div className="flex align-items-end justify-content-between">
-                                            <span className="text-xl font-bold text-slate-600 text-value">{beacon.temperature_c}°C</span>
+                                            <span className="text-xl font-bold text-slate-600 text-value">{beacon.temp}°C</span>
                                             <span className="text-xs text-slate-400 font-mono">{beacon.mac}</span>
                                         </div>
                                     </div>

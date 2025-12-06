@@ -15,16 +15,22 @@ import DashboardOverview from './components/DashboardOverview';
 import SectorsConfigView from './components/SectorsConfigView';
 import ReportsView from './components/ReportsView';
 import SensorDetailView from './components/SensorDetailView';
+import GatewaysView from './components/GatewaysView';
 import SettingsModal from './components/SettingsModal';
+import LoginView from './components/LoginView';
+import { loadBeacons, saveBeacons, loadLogs, saveLogs } from './utils/storage';
 
 // --- CONFIGURAÇÕES ---
 const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
-const MQTT_TOPIC = '/alcateia/processed_ble_data';
+const MQTT_TOPIC = '/alcateia/gateways/beacons/prd_ble_dat';
 
 // --- APP PRINCIPAL ---
 function App() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [beacons, setBeacons] = useState([]);
     const [selectedBeacon, setSelectedBeacon] = useState(null);
+    const initializedRef = useRef(false);
+        const logsInitializedRef = useRef(false);
     const [connectionStatus, setConnectionStatus] = useState('Desconectado');
     const [messageLog, setMessageLog] = useState([]);
     const [currentView, setCurrentView] = useState('dashboard');
@@ -35,20 +41,67 @@ function App() {
     // Settings State
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState({
-        tempAlert: 10,
-        tempCritical: 15,
+        tempAlert: 35,
+        tempCritical: 25,
         lowBattery: 20
     });
 
-    // Load Settings & Sectors
+    // Check for existing session
     useEffect(() => {
+        const session = localStorage.getItem('alcateia_auth');
+        if (session === 'true') {
+            setIsAuthenticated(true);
+        }
+    }, []);
+
+    const handleLogin = (username, password) => {
+        // Simple client-side check for demonstration
+        // In a real app, this would validate against a backend API
+        if (username && password) {
+            setIsAuthenticated(true);
+            localStorage.setItem('alcateia_auth', 'true');
+        }
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        localStorage.removeItem('alcateia_auth');
+        setCurrentView('dashboard');
+        setSelectedBeacon(null);
+    };
+
+    // Load Settings, Sectors & Beacons from localStorage when authenticated
+    useEffect(() => {
+
+        if (!isAuthenticated) return;
+
         const savedSectors = localStorage.getItem('alcateia_sectors');
         if (savedSectors) { setSectors(JSON.parse(savedSectors)); }
         else { setSectors([{ id: 1, name: 'Câmara Fria A', macs: [] }, { id: 2, name: 'Transporte 01', macs: [] }]); }
 
         const savedSettings = localStorage.getItem('alcateia_settings');
         if (savedSettings) { setSettings(JSON.parse(savedSettings)); }
-    }, []);
+
+        const restored = loadBeacons();
+        if (restored) setBeacons(restored);
+        // Mark that initial load attempt has completed so we don't overwrite stored data
+        initializedRef.current = true;
+            const restoredLogs = loadLogs();
+            if (restoredLogs) setMessageLog(restoredLogs);
+            logsInitializedRef.current = true;
+    }, [isAuthenticated]);
+
+    // Persist beacons to localStorage whenever they change
+    useEffect(() => {
+        if (!initializedRef.current) return;
+        saveBeacons(beacons);
+    }, [beacons]);
+    
+        // Persist message logs to localStorage whenever they change
+        useEffect(() => {
+            if (!logsInitializedRef.current) return;
+            saveLogs(messageLog);
+        }, [messageLog]);
 
     const handleSaveSectors = (newSectors) => {
         setSectors(newSectors);
@@ -68,6 +121,8 @@ function App() {
     };
 
     useEffect(() => {
+        if (!isAuthenticated) return;
+
         setConnectionStatus('Conectando...');
         const client = mqtt.connect(MQTT_BROKER, { clean: true, connectTimeout: 4000, clientId: 'ui_' + Math.random().toString(16).substring(2, 8), protocolVersion: 4, path: '/mqtt' });
         client.on('connect', () => { setConnectionStatus('Online'); client.subscribe(MQTT_TOPIC); });
@@ -75,31 +130,40 @@ function App() {
         client.on('error', () => setConnectionStatus('Erro'));
         client.on('offline', () => setConnectionStatus('Offline'));
         return () => { if (client) client.end(); };
-    }, []);
+    }, [isAuthenticated]);
 
-    useEffect(() => { const interval = setInterval(() => setTick(t => t + 1), 2000); return () => clearInterval(interval); }, []);
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const interval = setInterval(() => setTick(t => t + 1), 2000);
+        return () => clearInterval(interval);
+    }, [isAuthenticated]);
 
     const processData = (data) => {
         if (!data.mac) return;
-        const now = new Date();
-        const timeLabel = now.toLocaleTimeString('pt-BR');
-        setMessageLog(prev => [{ ...data, timestamp: timeLabel, id: Date.now() + Math.random() }, ...prev].slice(0, 200));
+        // Prefer the provided timestamp `ts` from the payload; fallback to now
+        const tsISO = data.ts || new Date().toISOString();
+        const timeLabel = new Date(tsISO).toLocaleTimeString('pt-BR');
+
+        // Store both raw ISO timestamp (`ts`) and a human label (`timestamp`) for display
+        setMessageLog(prev => [{ ...data, ts: tsISO, timestamp: timeLabel, id: Date.now() + Math.random() }, ...prev]);
+
         setBeacons(prev => {
             const index = prev.findIndex(b => b.mac === data.mac);
+            const lastSeenDate = new Date(tsISO);
             if (index !== -1) {
                 // Preserve custom name if exists
                 const existing = prev[index];
-                const updated = { ...existing, ...data, lastSeen: now, device_name: existing.device_name || data.device_name };
+                const updated = { ...existing, ...data, lastSeen: lastSeenDate, device_name: existing.device_name || data.device_name };
                 const newBeacons = [...prev];
                 newBeacons[index] = updated;
                 return newBeacons;
             }
-            return [...prev, { ...data, lastSeen: now }];
+            return [...prev, { ...data, lastSeen: lastSeenDate }];
         });
         if (!historyRef.current[data.mac]) { historyRef.current[data.mac] = { labels: [], tempData: [], humData: [], battData: [] }; }
         const hist = historyRef.current[data.mac];
         if (hist.labels.length > 30) { hist.labels.shift(); hist.tempData.shift(); hist.humData.shift(); hist.battData.shift(); }
-        hist.labels.push(timeLabel); hist.tempData.push(data.temperature_c); hist.humData.push(data.humidity_pct); hist.battData.push(data.battery_pct);
+        hist.labels.push(timeLabel); hist.tempData.push(data.temp); hist.humData.push(data.hum); hist.battData.push(data.batt);
 
         // Update selected beacon if it matches, but preserve local edits if any (handled by separate update function usually, but here we just sync live data)
         setSelectedBeacon(curr => (curr && curr.mac === data.mac) ? { ...curr, ...data, lastSeen: now, device_name: curr.device_name || data.device_name } : curr);
@@ -118,12 +182,20 @@ function App() {
         animation: false
     };
 
-    const NavItem = ({ icon, label, viewId, active }) => (
-        <div className={`nav-item ${active ? 'active' : ''}`} onClick={() => { setCurrentView(viewId); if (viewId !== 'details') setSelectedBeacon(null); }}>
+    const NavItem = ({ icon, label, viewId, active, onClick }) => (
+        <div className={`nav-item ${active ? 'active' : ''}`} onClick={() => {
+            if (onClick) { onClick(); return; }
+            setCurrentView(viewId);
+            if (viewId !== 'details') setSelectedBeacon(null);
+        }}>
             <i className={`pi ${icon}`}></i>
             <span>{label}</span>
         </div>
     );
+
+    if (!isAuthenticated) {
+        return <LoginView onLogin={handleLogin} />;
+    }
 
     return (
         <div className="layout-shell">
@@ -133,7 +205,6 @@ function App() {
                     <Avatar label="A" shape="circle" className="bg-indigo-600 text-white font-bold w-2.5rem h-2.5rem shadow-sm" />
                     <div>
                         <span className="text-base font-extrabold text-slate-800 tracking-tight block">Alcate-IA <b>Cold Chain</b></span>
-
                     </div>
                 </div>
 
@@ -141,9 +212,12 @@ function App() {
                     <div className="text-label px-4 mb-2 mt-2">Monitoramento</div>
                     <NavItem icon="pi-th-large" label="Visão Geral" viewId="dashboard" active={currentView === 'dashboard'} />
                     <NavItem icon="pi-chart-line" label="Relatórios" viewId="reports" active={currentView === 'reports'} />
+                    <NavItem icon="pi-server" label="Gateways" viewId="gateways" active={currentView === 'gateways'} />
 
                     <div className="text-label px-4 mb-2 mt-5">Gerenciamento</div>
                     <NavItem icon="pi-cog" label="Setores" viewId="config" active={currentView === 'config'} />
+                    <NavItem icon="pi-cog" label="Configurações" onClick={() => setShowSettings(true)} />
+                    
 
                     <div className="text-label px-4 mb-2 mt-5">Dispositivos ({beacons.length})</div>
                     {beacons.map(b => (
@@ -162,7 +236,10 @@ function App() {
                             <div className={`w-2 h-2 border-circle ${connectionStatus === 'Online' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                             <span className="text-xs font-bold text-slate-600">{connectionStatus}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-mono">v2.0.0</span>
+                        <div className="flex align-items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-mono">v2.0.0</span>
+                            <i className="pi pi-sign-out text-slate-400 cursor-pointer hover:text-slate-600" onClick={handleLogout} title="Sair"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -185,6 +262,7 @@ function App() {
                         <h2 className="text-lg font-bold text-slate-800">
                             {currentView === 'dashboard' && 'Visão Geral da Operação'}
                             {currentView === 'reports' && 'Análise de Dados'}
+                            {currentView === 'gateways' && 'Gateways'}
                             {currentView === 'config' && 'Gerenciamento de Setores'}
                             {currentView === 'details' && (selectedBeacon?.device_name || 'Detalhes do Dispositivo')}
                         </h2>
@@ -197,6 +275,8 @@ function App() {
                 {/* Main Content */}
                 <div className="flex-grow-1 p-4 overflow-y-auto bg-slate-50/50">
                     {currentView === 'dashboard' && <DashboardOverview beacons={beacons} sectors={sectors} settings={settings} onSelect={(b) => { setSelectedBeacon(b); setCurrentView('details'); }} />}
+                    {currentView === 'reports' && <ReportsView logs={messageLog} />}
+                    {currentView === 'gateways' && <GatewaysView messageLog={messageLog} beacons={beacons} onSelectBeacon={(b) => { setSelectedBeacon(b); setCurrentView('details'); }} />}
                     {currentView === 'config' && <SectorsConfigView sectors={sectors} onSave={handleSaveSectors} detectedBeacons={beacons} />}
                     {currentView === 'details' && selectedBeacon && <SensorDetailView beacon={selectedBeacon} history={historyRef.current[selectedBeacon.mac]} chartOptions={chartOptions} messageLog={messageLog} settings={settings} onUpdate={handleUpdateSensor} />}
                     {currentView === 'details' && !selectedBeacon && (
@@ -207,7 +287,6 @@ function App() {
                             <p className="text-sm font-medium">Selecione um sensor para visualizar os detalhes</p>
                         </div>
                     )}
-                    {currentView === 'reports' && <ReportsView logs={messageLog} />}
                 </div>
             </div>
 

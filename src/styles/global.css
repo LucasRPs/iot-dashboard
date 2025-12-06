@@ -262,3 +262,78 @@ h6 {
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
+/* --- Settings modal overrides (scoped) --- */
+.settings-dialog .p-dialog-titlebar-close {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    padding: 0.25rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.settings-dialog .p-dialog-titlebar-close .pi {
+    color: var(--text-secondary) !important;
+    font-size: 1rem !important;
+}
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .p-button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .p-button {
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    padding: 0 !important;
+    border-radius: 0.35rem !important;
+}
+
+/* More specific rules to neutralize pseudo-elements or backgrounds */
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close button,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .p-button,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .p-button .p-button-label,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close::before,
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close::after {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+}
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .pi {
+    color: var(--text-secondary) !important;
+}
+.settings-dialog .p-dialog .p-dialog-titlebar .p-dialog-titlebar-close .p-button .p-ripple {
+    display: none !important;
+}
+.settings-dialog .p-inputnumber {
+    display: flex;
+    align-items: center;
+}
+.settings-dialog .p-inputnumber .p-inputnumber-button {
+    background: transparent !important;
+    border: 1px solid var(--border-subtle) !important;
+    color: var(--text-secondary) !important;
+    padding: 0.2rem 0.45rem !important;
+    border-radius: 6px !important;
+    margin: 0 0.25rem !important;
+}
+.settings-dialog .p-inputnumber .p-inputnumber-input {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-main) !important;
+    padding: 0.4rem 0.6rem !important;
+    text-align: center !important;
+}
+.settings-dialog .p-button-text {
+    color: var(--text-secondary) !important;
+    background: transparent !important;
+}
+.settings-dialog .p-dialog-footer .p-button {
+    border-radius: 8px !important;
+}
