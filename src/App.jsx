@@ -140,33 +140,30 @@ function App() {
 
     const processData = (data) => {
         if (!data.mac) return;
-        // Prefer the provided timestamp `ts` from the payload; fallback to now
         const tsISO = data.ts || new Date().toISOString();
-        const timeLabel = new Date(tsISO).toLocaleTimeString('pt-BR');
+        const lastSeenDate = new Date(tsISO);
+        const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
 
-        // Store both raw ISO timestamp (`ts`) and a human label (`timestamp`) for display
         setMessageLog(prev => [{ ...data, ts: tsISO, timestamp: timeLabel, id: Date.now() + Math.random() }, ...prev]);
 
         setBeacons(prev => {
             const index = prev.findIndex(b => b.mac === data.mac);
-            const lastSeenDate = new Date(tsISO);
             if (index !== -1) {
-                // Preserve custom name if exists
                 const existing = prev[index];
-                const updated = { ...existing, ...data, lastSeen: lastSeenDate, device_name: existing.device_name || data.device_name };
+                const updated = { ...existing, ...data, ts: tsISO, lastSeen: lastSeenDate, device_name: existing.device_name || data.device_name };
                 const newBeacons = [...prev];
                 newBeacons[index] = updated;
                 return newBeacons;
             }
-            return [...prev, { ...data, lastSeen: lastSeenDate }];
+            return [...prev, { ...data, ts: tsISO, lastSeen: lastSeenDate }];
         });
+
         if (!historyRef.current[data.mac]) { historyRef.current[data.mac] = { labels: [], tempData: [], humData: [], battData: [] }; }
         const hist = historyRef.current[data.mac];
         if (hist.labels.length > 30) { hist.labels.shift(); hist.tempData.shift(); hist.humData.shift(); hist.battData.shift(); }
         hist.labels.push(timeLabel); hist.tempData.push(data.temp); hist.humData.push(data.hum); hist.battData.push(data.batt);
 
-        // Update selected beacon if it matches, but preserve local edits if any (handled by separate update function usually, but here we just sync live data)
-        setSelectedBeacon(curr => (curr && curr.mac === data.mac) ? { ...curr, ...data, lastSeen: now, device_name: curr.device_name || data.device_name } : curr);
+        setSelectedBeacon(curr => (curr && curr.mac === data.mac) ? { ...curr, ...data, ts: tsISO, lastSeen: lastSeenDate, device_name: curr.device_name || data.device_name } : curr);
     };
 
     const chartOptions = {

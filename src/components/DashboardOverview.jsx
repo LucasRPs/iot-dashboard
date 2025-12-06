@@ -149,7 +149,10 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                                 <div key={beacon.mac} className="col-12 md:col-6 lg:col-4 xl:col-3">
                                     <div className="sensor-grid-card opacity-80" onClick={() => onSelect(beacon)}>
                                         <div className="flex justify-content-between align-items-start mb-3">
-                                            <span className="text-sm font-bold text-slate-700">{beacon.device_name || 'Sensor'}</span>
+                                            <div>
+                                                <span className="text-sm font-bold text-slate-700">{beacon.device_name || 'Sensor'}</span>
+                                                {beacon.loc && <span className="text-xs text-slate-500 block mt-1">{beacon.loc}</span>}
+                                            </div>
                                             <span className="status-badge neutral">Novo</span>
                                         </div>
                                         <div className="flex align-items-end justify-content-between">

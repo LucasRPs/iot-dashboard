@@ -23,12 +23,13 @@ const ReportsView = ({ logs }) => {
         <div className="h-full flex flex-column fadein animation-duration-500 p-2">
             <div className="tech-card overflow-hidden h-full flex flex-column border-none shadow-1 animate-enter">
                 <DataTable value={logs} paginator rows={30} header={header} globalFilter={globalFilter} className="h-full flex flex-column" stripedRows sortField="ts" sortOrder={-1} size="small" emptyMessage="Nenhum registro." tableStyle={{ minWidth: '50rem' }} scrollable scrollHeight="flex">
-                    <Column field="ts" header="Horário" sortable style={{ width: '15%' }} body={d => <span className="text-slate-600 font-medium font-mono text-xs bg-slate-50 px-1 border-round">{d.ts ? new Date(d.ts).toLocaleString('pt-BR') : d.timestamp}</span>} />
-                    <Column field="device_name" header="Gateway" sortable style={{ width: '20%' }} body={d => <span className="font-bold text-slate-700 text-xs">{d.gw}</span>} />
-                    <Column field="mac" header="MAC" sortable className="font-mono text-[10px] text-gray-400" />
+                    <Column field="ts" header="Horário" sortable style={{ width: '14%' }} body={d => <span className="text-slate-600 font-medium font-mono text-xs bg-slate-50 px-1 border-round">{d.ts ? new Date(d.ts).toLocaleString('pt-BR') : d.timestamp}</span>} />
+                    <Column field="gw" header="Gateway" sortable style={{ width: '12%' }} body={d => <span className="font-bold text-slate-700 text-xs">{d.gw || '-'}</span>} />
+                    <Column field="loc" header="Local" sortable style={{ width: '14%' }} body={d => <span className="text-slate-600 text-xs italic">{d.loc || '-'}</span>} />
+                    <Column field="mac" header="MAC" sortable style={{ width: '16%' }} body={d => <span className="font-mono text-[10px] text-gray-400">{d.mac}</span>} />
                     <Column field="temp" header="Temp" sortable body={d => <span className={`font-bold text-xs ${d.temp > 10 ? 'text-orange-600' : 'text-slate-700'}`}>{d.temp}°C</span>} />
                     <Column field="hum" header="Umid" sortable body={d => <span className="text-sky-600 font-bold text-xs">{d.hum}%</span>} />
-                    <Column field="batt" header="Bat" sortable style={{ width: '10%' }} body={d => (
+                    <Column field="batt" header="Bat" sortable style={{ width: '8%' }} body={d => (
                         <div className="flex align-items-center gap-1">
                             <div className="w-1.5rem bg-gray-200 border-round-xl h-0.5rem overflow-hidden relative">
                                 <div className={`h-full ${d.batt < 20 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${d.batt}%` }}></div>
@@ -36,7 +37,7 @@ const ReportsView = ({ logs }) => {
                             <span className="text-[10px] text-gray-500">{d.batt}%</span>
                         </div>
                     )} />
-                    <Column field="rssi" header="Sinal" sortable style={{ width: '10%' }} body={d => <span className="text-[10px] text-gray-500 font-medium">{d.rssi} dBm</span>} />
+                    <Column field="rssi" header="Sinal" sortable style={{ width: '8%' }} body={d => <span className="text-[10px] text-gray-500 font-medium">{d.rssi} dBm</span>} />
                 </DataTable>
             </div>
         </div>

@@ -13,15 +13,16 @@ const GatewaysView = ({ messageLog, beacons, onSelectBeacon }) => {
             if (!gatewayMap.has(gw)) {
                 gatewayMap.set(gw, {
                     gateway: gw,
+                    location: log.loc || '',
                     macs: new Set(),
-                    // store raw ts (ISO) if available, fallback to existing timestamp field
-                    lastSeen: log.ts || log.timestamp,
+                    ts: log.ts,
                     deviceCount: 0
                 });
             }
             const entry = gatewayMap.get(gw);
             entry.macs.add(log.mac);
-            entry.lastSeen = log.ts || log.timestamp; // Most recent (logs are newest-first)
+            entry.ts = log.ts;
+            entry.location = log.loc || entry.location;
             entry.deviceCount = entry.macs.size;
         });
 
@@ -29,9 +30,8 @@ const GatewaysView = ({ messageLog, beacons, onSelectBeacon }) => {
         return Array.from(gatewayMap.values())
             .map(entry => ({
                 ...entry,
-                macs: Array.from(entry.macs).sort(), // Sort MACs for consistent ordering
-                // Format lastSeen for display (if present)
-                lastSeen: entry.lastSeen ? new Date(entry.lastSeen).toLocaleString('pt-BR') : ''
+                macs: Array.from(entry.macs).sort(),
+                lastSeen: entry.ts ? new Date(entry.ts).toLocaleString('pt-BR') : ''
             }))
             .sort((a, b) => a.gateway.localeCompare(b.gateway));
     }, [messageLog]);
