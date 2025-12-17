@@ -10,7 +10,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
     const tempCriticalCount = beacons.filter(b => b.temp > settings.tempCritical).length;
 
     return (
-        <div className="fade-in h-full">
+        <div className="h-full">
             {/* KPI WIDGETS */}
             <div className="grid mb-4">
                 <div className="col-12 md:col-6 lg:col-3">

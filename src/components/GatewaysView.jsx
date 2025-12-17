@@ -43,8 +43,8 @@ const GatewaysView = ({ messageLog, beacons, onSelectBeacon }) => {
     };
 
     return (
-        <div className="fadein animation-duration-500 h-full flex flex-column p-2">
-            <div className="tech-card p-4 h-full flex flex-column animate-enter">
+        <div className="h-full flex flex-column p-2">
+            <div className="tech-card p-4 h-full flex flex-column">
                 <div className="flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 className="m-0 text-slate-800 text-lg font-bold">Gateways</h2>

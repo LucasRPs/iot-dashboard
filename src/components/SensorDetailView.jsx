@@ -7,7 +7,7 @@ import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
 // URL do Webhook de Histórico (Configure no n8n para aceitar query params ?mac=...&range=...)
-const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook-test/history';
+const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
 
 const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -22,7 +22,7 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
         setNewName(beacon?.device_name || '');
     }, [beacon?.mac]);
 
-    // --- FETCH HISTORY DO N8N (Disparado apenas quando MAC ou Period mudam) ---
+    // --- FETCH HISTORY DO N8N (Disparado quando MAC ou Period mudam, e a cada 1 minuto) ---
     useEffect(() => {
         if (!beacon?.mac) return;
 
@@ -54,8 +54,14 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
             }
         };
 
+        // Carrega imediatamente ao montar ou quando MAC/period mudam
         fetchHistory();
-        // NOTA: Sem setInterval aqui. O histórico carrega uma vez por seleção/filtro.
+        
+        // Configura intervalo de 1 minuto (60000 ms) para atualizar automaticamente
+        const interval = setInterval(fetchHistory, 60000);
+        
+        // Limpa o intervalo quando o componente desmonta ou dependências mudam
+        return () => clearInterval(interval);
     }, [beacon?.mac, period]); 
 
     if (!beacon) return null;
@@ -129,7 +135,7 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     }, [historyData, period]);
 
     return (
-        <div className="fade-in h-full flex flex-column gap-4">
+        <div className="h-full flex flex-column gap-4">
             <Toast ref={toast} />
             {/* Header / Actions */}
             <div className="flex justify-content-between align-items-center">

@@ -20,8 +20,8 @@ const ReportsView = ({ logs }) => {
     );
 
     return (
-        <div className="h-full flex flex-column fadein animation-duration-500 p-2">
-            <div className="tech-card overflow-hidden h-full flex flex-column border-none shadow-1 animate-enter">
+        <div className="h-full flex flex-column p-2">
+            <div className="tech-card overflow-hidden h-full flex flex-column border-none shadow-1">
                 <DataTable value={logs} paginator rows={30} header={header} globalFilter={globalFilter} className="h-full flex flex-column" stripedRows sortField="ts" sortOrder={-1} size="small" emptyMessage="Nenhum registro." tableStyle={{ minWidth: '50rem' }} scrollable scrollHeight="flex">
                     <Column field="ts" header="Horário" sortable style={{ width: '14%' }} body={d => <span className="text-slate-600 font-medium font-mono text-xs bg-slate-50 px-1 border-round">{d.ts ? new Date(d.ts).toLocaleString('pt-BR') : d.timestamp}</span>} />
                     <Column field="gw" header="Gateway" sortable style={{ width: '12%' }} body={d => <span className="font-bold text-slate-700 text-xs">{d.gw || '-'}</span>} />

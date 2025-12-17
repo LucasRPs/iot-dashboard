@@ -101,8 +101,8 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
     };
 
     return (
-        <div className="fadein animation-duration-500 h-full flex flex-column p-2">
-            <div className="tech-card p-4 h-full flex flex-column animate-enter">
+        <div className="h-full flex flex-column p-2">
+            <div className="tech-card p-4 h-full flex flex-column">
                 <Tooltip target=".sector-badge" mouseTrack mouseTrackLeft={10} />
                 <div className="flex justify-content-between align-items-center mb-4">
                     <div>
