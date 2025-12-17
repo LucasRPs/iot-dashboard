@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import mqtt from 'mqtt';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Avatar } from 'primereact/avatar';
 import { Button } from 'primereact/button';
 
@@ -18,24 +17,23 @@ import SensorDetailView from './components/SensorDetailView';
 import GatewaysView from './components/GatewaysView';
 import SettingsModal from './components/SettingsModal';
 import LoginView from './components/LoginView';
-import { loadBeacons, saveBeacons, loadLogs, saveLogs } from './utils/storage';
+import { saveLogs } from './utils/storage';
 
 // --- CONFIGURAÇÕES ---
-const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
-const MQTT_TOPIC = '/alcateia/gateways/beacons/prd_ble_dat';
+const N8N_API_URL = 'https://n8n.alcateia-ia.com/webhook/sensors'; 
+const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
 
 // --- APP PRINCIPAL ---
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [beacons, setBeacons] = useState([]);
     const [selectedBeacon, setSelectedBeacon] = useState(null);
-    const initializedRef = useRef(false);
-        const logsInitializedRef = useRef(false);
-    const [connectionStatus, setConnectionStatus] = useState('Desconectado');
+    const logsInitializedRef = useRef(false);
+    const [connectionStatus, setConnectionStatus] = useState('Conectando...');
     const [messageLog, setMessageLog] = useState([]);
     const [currentView, setCurrentView] = useState('dashboard');
     const [sectors, setSectors] = useState([]);
-    const [tick, setTick] = useState(0);
+    const [tick, setTick] = useState(0); // Força re-render para atualizar status online/offline
     const historyRef = useRef({});
 
     // Settings State
@@ -55,8 +53,6 @@ function App() {
     }, []);
 
     const handleLogin = (username, password) => {
-        // Simple client-side check for demonstration
-        // In a real app, this would validate against a backend API
         if (username && password) {
             setIsAuthenticated(true);
             localStorage.setItem('alcateia_auth', 'true');
@@ -70,9 +66,8 @@ function App() {
         setSelectedBeacon(null);
     };
 
-    // Load Settings, Sectors & Beacons from localStorage when authenticated
+    // Load Settings & Sectors from localStorage
     useEffect(() => {
-
         if (!isAuthenticated) return;
 
         const savedSectors = localStorage.getItem('alcateia_sectors');
@@ -82,26 +77,14 @@ function App() {
         const savedSettings = localStorage.getItem('alcateia_settings');
         if (savedSettings) { setSettings(JSON.parse(savedSettings)); }
 
-        const restored = loadBeacons();
-        if (restored) setBeacons(restored);
-        // Mark that initial load attempt has completed so we don't overwrite stored data
-        initializedRef.current = true;
-            const restoredLogs = loadLogs();
-            if (restoredLogs) setMessageLog(restoredLogs);
-            logsInitializedRef.current = true;
+        logsInitializedRef.current = true;
     }, [isAuthenticated]);
 
-    // Persist beacons to localStorage whenever they change
+    // Persist message logs
     useEffect(() => {
-        if (!initializedRef.current) return;
-        saveBeacons(beacons);
-    }, [beacons]);
-    
-        // Persist message logs to localStorage whenever they change
-        useEffect(() => {
-            if (!logsInitializedRef.current) return;
-            saveLogs(messageLog);
-        }, [messageLog]);
+        if (!logsInitializedRef.current) return;
+        saveLogs(messageLog);
+    }, [messageLog]);
 
     const handleSaveSectors = (newSectors) => {
         setSectors(newSectors);
@@ -120,62 +103,126 @@ function App() {
         }
     };
 
-    useEffect(() => {
+    // --- FUNÇÃO AUXILIAR DE STATUS ---
+    const getStatus = useCallback((lastSeenDate) => {
+        if (!lastSeenDate) return 'offline';
+        const now = new Date();
+        const diff = now.getTime() - new Date(lastSeenDate).getTime();
+        return diff < OFFLINE_THRESHOLD_MS ? 'online' : 'offline';
+    }, []);
+
+    // --- FETCH DATA (API N8N) ---
+    const fetchData = useCallback(async () => {
         if (!isAuthenticated) return;
 
-        setConnectionStatus('Conectando...');
-        const client = mqtt.connect(MQTT_BROKER, { clean: true, connectTimeout: 4000, clientId: 'ui_' + Math.random().toString(16).substring(2, 8), protocolVersion: 4, path: '/mqtt' });
-        client.on('connect', () => { setConnectionStatus('Online'); client.subscribe(MQTT_TOPIC); });
-        client.on('message', (topic, message) => { try { const parsed = JSON.parse(message.toString()); if (Array.isArray(parsed)) parsed.forEach(item => processData(item)); else processData(parsed); } catch (e) { console.error(e); } });
-        client.on('error', () => setConnectionStatus('Erro'));
-        client.on('offline', () => setConnectionStatus('Offline'));
-        return () => { if (client) client.end(); };
-    }, [isAuthenticated]);
+        try {
+            const response = await fetch(N8N_API_URL);
+            if (!response.ok) throw new Error('Erro na resposta da API');
+            
+            const data = await response.json();
+            const sensorList = Array.isArray(data) ? data : (data.data || []);
 
+            if (sensorList.length > 0) {
+                const formattedBeacons = sensorList.map(s => {
+                    const temp = Number(s.current_temp ?? s.temp ?? 0);
+                    const hum = Number(s.current_hum ?? s.hum ?? 0);
+                    const batt = Number(s.battery_level ?? s.batt ?? 0);
+                    const rssi = Number(s.rssi ?? 0);
+                    const ts = s.last_seen || s.ts || new Date().toISOString();
+                    const lastSeenDate = new Date(ts);
+                    const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
+
+                    // Histórico para Gráficos
+                    if (!historyRef.current[s.mac]) { 
+                        historyRef.current[s.mac] = { labels: [], tempData: [], humData: [], battData: [] }; 
+                    }
+                    const hist = historyRef.current[s.mac];
+                    
+                    const lastLabel = hist.labels[hist.labels.length - 1];
+                    if (lastLabel !== timeLabel) {
+                        if (hist.labels.length > 30) { 
+                            hist.labels.shift(); hist.tempData.shift(); hist.humData.shift(); hist.battData.shift(); 
+                        }
+                        hist.labels.push(timeLabel);
+                        hist.tempData.push(temp);
+                        hist.humData.push(hum);
+                        hist.battData.push(batt);
+                    }
+
+                    return {
+                        mac: s.mac,
+                        device_name: s.name || s.device_name || `Sensor ${s.mac}`,
+                        temp: temp,
+                        hum: hum,
+                        batt: batt,
+                        rssi: rssi,
+                        ts: ts,
+                        lastSeen: lastSeenDate, // Objeto Date real para cálculo
+                        gateway: s.gateway || s.gw,
+                        sector: s.sector
+                    };
+                });
+
+                setBeacons(formattedBeacons);
+                
+                // Calcula status geral
+                const onlineCount = formattedBeacons.filter(b => getStatus(b.lastSeen) === 'online').length;
+                setConnectionStatus(`Online (${onlineCount}/${formattedBeacons.length})`);
+
+                // Log
+                const newLogs = formattedBeacons.map(b => ({
+                    ...b,
+                    timestamp: b.lastSeen.toLocaleTimeString('pt-BR'),
+                    id: `${b.mac}_${b.lastSeen.getTime()}`
+                }));
+
+                setMessageLog(prev => {
+                    const uniqueNewLogs = newLogs.filter(n => !prev.some(p => p.id === n.id));
+                    if (uniqueNewLogs.length === 0) return prev;
+                    return [...uniqueNewLogs, ...prev].slice(0, 200);
+                });
+
+                if (selectedBeacon) {
+                    const updatedSelected = formattedBeacons.find(b => b.mac === selectedBeacon.mac);
+                    if (updatedSelected) {
+                        setSelectedBeacon(prev => ({ ...prev, ...updatedSelected }));
+                    }
+                }
+            } else {
+                setConnectionStatus('Sem Sensores');
+            }
+
+        } catch (error) {
+            console.error("Erro no fetch:", error);
+            setConnectionStatus('Offline / Erro API');
+        }
+    }, [isAuthenticated, selectedBeacon, getStatus]);
+
+    // --- POLLING ---
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        fetchData();
+        const interval = setInterval(fetchData, 5000); 
+        return () => clearInterval(interval);
+    }, [isAuthenticated, fetchData]);
+
+    // Timer visual (Atualiza a cada 2s para recalcular 'online/offline' visualmente sem fetch)
     useEffect(() => {
         if (!isAuthenticated) return;
         const interval = setInterval(() => setTick(t => t + 1), 2000);
         return () => clearInterval(interval);
     }, [isAuthenticated]);
 
-    const processData = (data) => {
-        if (!data.mac) return;
-        const tsISO = data.ts || new Date().toISOString();
-        const lastSeenDate = new Date(tsISO);
-        const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
-
-        setMessageLog(prev => [{ ...data, ts: tsISO, timestamp: timeLabel, id: Date.now() + Math.random() }, ...prev]);
-
-        setBeacons(prev => {
-            const index = prev.findIndex(b => b.mac === data.mac);
-            if (index !== -1) {
-                const existing = prev[index];
-                const updated = { ...existing, ...data, ts: tsISO, lastSeen: lastSeenDate, device_name: existing.device_name || data.device_name };
-                const newBeacons = [...prev];
-                newBeacons[index] = updated;
-                return newBeacons;
-            }
-            return [...prev, { ...data, ts: tsISO, lastSeen: lastSeenDate }];
-        });
-
-        if (!historyRef.current[data.mac]) { historyRef.current[data.mac] = { labels: [], tempData: [], humData: [], battData: [] }; }
-        const hist = historyRef.current[data.mac];
-        if (hist.labels.length > 30) { hist.labels.shift(); hist.tempData.shift(); hist.humData.shift(); hist.battData.shift(); }
-        hist.labels.push(timeLabel); hist.tempData.push(data.temp); hist.humData.push(data.hum); hist.battData.push(data.batt);
-
-        setSelectedBeacon(curr => (curr && curr.mac === data.mac) ? { ...curr, ...data, ts: tsISO, lastSeen: lastSeenDate, device_name: curr.device_name || data.device_name } : curr);
-    };
-
     const chartOptions = {
         maintainAspectRatio: false,
         responsive: true,
-        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(255, 255, 255, 0.95)', titleColor: '#1e293b', bodyColor: '#475569', borderColor: '#e2e8f0', borderWidth: 1, padding: 8, displayColors: true, bodyFont: { size: 11 } } },
+        plugins: { legend: { display: false } },
         scales: {
             x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
             y: { type: 'linear', display: true, position: 'left', ticks: { color: '#f97316' }, grid: { color: '#f1f5f9', borderDash: [5, 5] } },
             y1: { type: 'linear', display: true, position: 'right', ticks: { color: '#0ea5e9' }, grid: { display: false } },
         },
-        elements: { point: { radius: 0, hoverRadius: 4, hoverBorderWidth: 2 } },
+        elements: { point: { radius: 0, hoverRadius: 4 } },
         animation: false
     };
 
@@ -215,26 +262,33 @@ function App() {
                     <NavItem icon="pi-cog" label="Setores" viewId="config" active={currentView === 'config'} />
                     <NavItem icon="pi-cog" label="Configurações" onClick={() => setShowSettings(true)} />
                     
-
                     <div className="text-label px-4 mb-2 mt-5">Dispositivos ({beacons.length})</div>
-                    {beacons.map(b => (
-                        <div key={b.mac} className={`nav-item ${selectedBeacon?.mac === b.mac && currentView === 'details' ? 'active' : ''}`}
-                            onClick={() => { setSelectedBeacon(b); setCurrentView('details'); }}>
-                            <i className="pi pi-box text-xs"></i>
-                            <span className="text-xs font-medium">{b.device_name || b.mac.slice(-5)}</span>
-                            {b.temperature_c > settings.tempCritical && <div className="w-2 h-2 rounded-full bg-rose-500 ml-auto"></div>}
-                        </div>
-                    ))}
+                    {beacons.map(b => {
+                        const isOnline = getStatus(b.lastSeen) === 'online';
+                        return (
+                            <div key={b.mac} className={`nav-item ${selectedBeacon?.mac === b.mac && currentView === 'details' ? 'active' : ''}`}
+                                onClick={() => { setSelectedBeacon(b); setCurrentView('details'); }}>
+                                <i className="pi pi-box text-xs"></i>
+                                <span className="text-xs font-medium flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">
+                                    {b.device_name || b.mac.slice(-5)}
+                                </span>
+                                {/* Bolinha de Status Online/Offline */}
+                                <div className={`w-2 h-2 border-circle ml-2 ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} title={isOnline ? 'Online' : 'Offline'}></div>
+                                {/* Alerta Crítico */}
+                                {b.temp > settings.tempCritical && <i className="pi pi-exclamation-triangle text-rose-500 text-xs ml-1 animate-pulse"></i>}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="p-3 mt-auto border-top-1 border-gray-100 bg-gray-50">
                     <div className="flex align-items-center justify-content-between">
                         <div className="flex align-items-center gap-2">
-                            <div className={`w-2 h-2 border-circle ${connectionStatus === 'Online' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                            <div className={`w-2 h-2 border-circle ${connectionStatus.includes('Online') ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                             <span className="text-xs font-bold text-slate-600">{connectionStatus}</span>
                         </div>
                         <div className="flex align-items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-mono">v2.0.0</span>
+                            <span className="text-[10px] text-slate-400 font-mono">v2.3.0</span>
                             <i className="pi pi-sign-out text-slate-400 cursor-pointer hover:text-slate-600" onClick={handleLogout} title="Sair"></i>
                         </div>
                     </div>
@@ -243,7 +297,6 @@ function App() {
 
             {/* --- CONTENT PANEL --- */}
             <div className="content-panel">
-                {/* Header */}
                 <div className="h-4rem flex align-items-center justify-content-between px-4 border-bottom-1 border-gray-100 bg-white">
                     <div>
                         <div className="flex align-items-center gap-2 text-slate-400 text-xs font-medium mb-1">
@@ -269,7 +322,6 @@ function App() {
                     </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="flex-grow-1 p-4 overflow-y-auto bg-slate-50/50">
                     {currentView === 'dashboard' && <DashboardOverview beacons={beacons} sectors={sectors} settings={settings} onSelect={(b) => { setSelectedBeacon(b); setCurrentView('details'); }} />}
                     {currentView === 'reports' && <ReportsView logs={messageLog} />}
