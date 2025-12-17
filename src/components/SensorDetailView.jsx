@@ -8,12 +8,14 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 
 // URL do Webhook de Histórico (Configure no n8n para aceitar query params ?mac=...&range=...)
 const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
+const N8N_EDIT_SENSOR_URL = 'https://n8n.alcateia-ia.com/webhook/edit/sensor';
 
 const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(beacon?.device_name || '');
     const [period, setPeriod] = useState('24h');
     const [historyData, setHistoryData] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const toast = useRef(null);
 
@@ -66,15 +68,36 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
 
     if (!beacon) return null;
 
-    const handleSaveName = () => {
+    const handleSaveName = async () => {
         const trimmed = (newName || '').trim();
         if (!trimmed) {
             toast.current?.show({ severity: 'warn', summary: 'Aviso', detail: 'Nome não pode ficar vazio', life: 2500 });
             return;
         }
-        onUpdate({ ...beacon, device_name: trimmed });
-        toast.current?.show({ severity: 'success', summary: 'Salvo', detail: 'Nome do sensor atualizado', life: 1800 });
-        setIsEditing(false);
+
+        setIsSaving(true);
+        try {
+            const url = new URL(N8N_EDIT_SENSOR_URL);
+            url.searchParams.append('mac', beacon.mac);
+            url.searchParams.append('name', trimmed);
+
+            const response = await fetch(url.toString(), {
+                method: 'PUT',
+            });
+
+            if (!response.ok) {
+                throw new Error('Falha ao atualizar o nome do sensor na API.');
+            }
+
+            onUpdate({ ...beacon, device_name: trimmed });
+            toast.current?.show({ severity: 'success', summary: 'Salvo', detail: 'Nome do sensor atualizado', life: 1800 });
+            setIsEditing(false);
+        } catch (error) {
+            console.error("Erro ao salvar nome do sensor:", error);
+            toast.current?.show({ severity: 'error', summary: 'Erro', detail: 'Não foi possível salvar o novo nome.', life: 3000 });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // Processa os dados recebidos da API para o formato do Chart.js
@@ -227,8 +250,8 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     <InputText id="devName" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus className="w-full" />
                 </div>
                 <div className="flex justify-content-end gap-2 mt-4">
-                    <Button label="Cancelar" text onClick={() => setIsEditing(false)} style={{ color: 'var(--text-secondary)' }} />
-                    <Button label="Salvar" onClick={handleSaveName} className="btn-primary" />
+                    <Button label="Cancelar" text onClick={() => setIsEditing(false)} style={{ color: 'var(--text-secondary)' }} disabled={isSaving} />
+                    <Button label="Salvar" onClick={handleSaveName} className="btn-primary" loading={isSaving} />
                 </div>
             </Dialog>
         </div>
