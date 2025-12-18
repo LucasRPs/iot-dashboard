@@ -9,6 +9,7 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 // URL do Webhook de Histórico (Configure no n8n para aceitar query params ?mac=...&range=...)
 const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
 const N8N_EDIT_SENSOR_URL = 'https://n8n.alcateia-ia.com/webhook/edit/sensor';
+const N8N_CONFIG_URL = 'https://n8n.alcateia-ia.com/webhook/sensor/configuration';
 
 const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -22,7 +23,28 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     // Sincroniza o nome ao mudar de beacon
     useEffect(() => {
         setNewName(beacon?.device_name || '');
-    }, [beacon?.mac]);
+    }, [beacon?.device_name]);
+
+    // --- FETCH CONFIGURAÇÃO DO SENSOR (Nome, etc) ---
+    useEffect(() => {
+        if (!beacon?.mac || !onUpdate) return;
+
+        const fetchConfig = async () => {
+            try {
+                const url = new URL(N8N_CONFIG_URL);
+                url.searchParams.append('mac', beacon.mac);
+                const response = await fetch(url.toString());
+                if (response.ok) {
+                    const data = await response.json();
+                    // A API retorna um array, então pegamos o primeiro item.
+                    if (Array.isArray(data) && data.length > 0 && data[0].display_name && data[0].display_name !== beacon.device_name) {
+                        onUpdate({ ...beacon, device_name: data[0].display_name });
+                    }
+                }
+            } catch (error) { console.error("Erro ao buscar configuração do sensor:", error); }
+        };
+        fetchConfig();
+    }, [beacon?.mac, onUpdate]);
 
     // --- FETCH HISTORY DO N8N (Disparado quando MAC ou Period mudam, e a cada 1 minuto) ---
     useEffect(() => {
