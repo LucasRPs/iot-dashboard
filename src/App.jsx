@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 
 // --- CSS Imports ---
@@ -18,16 +18,20 @@ import LoginView from './components/LoginView';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// --- CONFIGURAÇÕES ---
+const N8N_API_URL = 'https://n8n.alcateia-ia.com/webhook/sensors';
+const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
+
 // --- APP PRINCIPAL ---
 function App() {
     const [beacons, setBeacons] = useState([]);
     const [sectors, setSectors] = useState([]);
-    const [messageLog, setMessageLog] = useState([]);
     const [settings, setSettings] = useState({
         tempAlert: 35,
         tempCritical: 25,
         lowBattery: 20
     });
+    const [connectionStatus, setConnectionStatus] = useState('Conectando...');
     const historyRef = useRef({});
 
     // Opções do gráfico (compartilhadas)
@@ -47,6 +51,90 @@ function App() {
     const handleUpdateSensor = (updatedBeacon) => {
         setBeacons(prev => prev.map(b => b.mac === updatedBeacon.mac ? updatedBeacon : b));
     };
+
+    // Função auxiliar para calcular status online/offline
+    const getStatus = useCallback((lastSeenDate) => {
+        if (!lastSeenDate) return 'offline';
+        const diff = Date.now() - new Date(lastSeenDate).getTime();
+        return diff < OFFLINE_THRESHOLD_MS ? 'online' : 'offline';
+    }, []);
+
+    // Fetch de dados da API N8N
+    const fetchData = useCallback(async () => {
+        try {
+            const response = await fetch(N8N_API_URL);
+            if (!response.ok) throw new Error('Erro na resposta da API');
+            
+            const data = await response.json();
+            const sensorList = Array.isArray(data) ? data : (data.data || []);
+
+            if (sensorList.length > 0) {
+                const formattedBeacons = sensorList.map(s => {
+                    const temp = parseFloat(s.current_temp ?? s.temp ?? 0);
+                    const hum = parseFloat(s.current_hum ?? s.hum ?? 0);
+                    const batt = Number(s.battery_level ?? s.batt ?? 0);
+                    const rssi = Number(s.rssi ?? 0);
+                    const ts = s.last_seen || s.ts || new Date().toISOString();
+                    const lastSeenDate = new Date(ts);
+                    const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
+
+                    // Histórico para Gráficos
+                    if (!historyRef.current[s.mac]) { 
+                        historyRef.current[s.mac] = { labels: [], tempData: [], humData: [], battData: [] }; 
+                    }
+                    const hist = historyRef.current[s.mac];
+                    
+                    const lastLabel = hist.labels[hist.labels.length - 1];
+                    if (lastLabel !== timeLabel) {
+                        if (hist.labels.length > 30) { 
+                            hist.labels.shift(); 
+                            hist.tempData.shift(); 
+                            hist.humData.shift(); 
+                            hist.battData.shift(); 
+                        }
+                        hist.labels.push(timeLabel);
+                        hist.tempData.push(temp);
+                        hist.humData.push(hum);
+                        hist.battData.push(batt);
+                    }
+
+                    return {
+                        mac: s.mac,
+                        device_name: s.name || s.device_name || `Sensor ${s.mac}`,
+                        display_name: s.display_name,
+                        temp: temp,
+                        hum: hum,
+                        batt: batt,
+                        rssi: rssi,
+                        ts: ts,
+                        lastSeen: lastSeenDate,
+                        gateway: s.gateway || s.gw,
+                        sector: s.sector
+                    };
+                });
+
+                setBeacons(formattedBeacons);
+                
+                // Calcula status geral
+                const onlineCount = formattedBeacons.filter(b => getStatus(b.lastSeen) === 'online').length;
+                setConnectionStatus(`Online (${onlineCount}/${formattedBeacons.length})`);
+
+            } else {
+                setConnectionStatus('Sem Sensores');
+            }
+
+        } catch (error) {
+            console.error("Erro no fetch:", error);
+            setConnectionStatus('Offline / Erro API');
+        }
+    }, [getStatus, historyRef]);
+
+    // Polling de dados
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 60000); 
+        return () => clearInterval(interval);
+    }, [fetchData]);
 
     // Componente wrapper para DashboardOverview
     const DashboardPage = () => {
@@ -82,7 +170,6 @@ function App() {
                 beacon={beacon} 
                 history={historyRef.current[beacon.mac]} 
                 chartOptions={chartOptions} 
-                messageLog={messageLog} 
                 settings={settings} 
                 onUpdate={handleUpdateSensor} 
             />
@@ -94,8 +181,6 @@ function App() {
         const navigate = useNavigate();
         return (
             <GatewaysView 
-                messageLog={messageLog} 
-                beacons={beacons} 
                 onSelectBeacon={(b) => navigate(`/sensor/${b.mac}`)} 
             />
         );
@@ -149,13 +234,11 @@ function App() {
                     <ProtectedRoute>
                         <Layout
                             beacons={beacons}
-                            setBeacons={setBeacons}
                             sectors={sectors}
                             setSectors={setSectors}
                             settings={settings}
                             setSettings={setSettings}
-                            messageLog={messageLog}
-                            setMessageLog={setMessageLog}
+                            connectionStatus={connectionStatus}
                             historyRef={historyRef}
                             chartOptions={chartOptions}
                             onUpdateSensor={handleUpdateSensor}
@@ -165,7 +248,7 @@ function App() {
             >
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="" element={<Navigate to="/dashboard" replace />} />
-                <Route path="reports" element={<ReportsView logs={messageLog} />} />
+                <Route path="reports" element={<ReportsView />} />
                 <Route path="gateways" element={<GatewaysPage />} />
                 <Route path="config" element={<SectorsConfigPage />} />
                 <Route path="sensor/:mac" element={<SensorDetailPage />} />

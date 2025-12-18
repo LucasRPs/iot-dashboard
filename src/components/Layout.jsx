@@ -1,23 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
-import { Button } from 'primereact/button';
 import SettingsModal from './SettingsModal';
-import { saveLogs } from '../utils/storage';
 
 // --- CONFIGURAÇÕES ---
-const N8N_API_URL = 'https://n8n.alcateia-ia.com/webhook/sensors'; 
 const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
 
 /**
  * Componente Layout - Contém a estrutura principal da aplicação (Sidebar + Header)
- * Gerencia o estado global dos beacons, setores, configurações e logs
+ * Gerencia o estado de setores, configurações e a estrutura visual.
  */
-const Layout = ({ beacons, setBeacons, sectors, setSectors, settings, setSettings, messageLog, setMessageLog, historyRef, chartOptions, onUpdateSensor }) => {
+const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectionStatus }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const logsInitializedRef = useRef(false);
-    const [connectionStatus, setConnectionStatus] = useState('Conectando...');
     const [showSettings, setShowSettings] = useState(false);
     const [tick, setTick] = useState(0);
 
@@ -38,118 +34,18 @@ const Layout = ({ beacons, setBeacons, sectors, setSectors, settings, setSetting
         logsInitializedRef.current = true;
     }, [setSectors, setSettings]);
 
-    // Persiste logs no localStorage
-    useEffect(() => {
-        if (!logsInitializedRef.current) return;
-        saveLogs(messageLog);
-    }, [messageLog]);
-
     // Função auxiliar para calcular status online/offline
-    const getStatus = useCallback((lastSeenDate) => {
+    const getStatus = (lastSeenDate) => {
         if (!lastSeenDate) return 'offline';
-        const now = new Date();
-        const diff = now.getTime() - new Date(lastSeenDate).getTime();
+        const diff = Date.now() - new Date(lastSeenDate).getTime();
         return diff < OFFLINE_THRESHOLD_MS ? 'online' : 'offline';
-    }, []);
-
-    // Fetch de dados da API N8N
-    const fetchData = useCallback(async () => {
-        try {
-            const response = await fetch(N8N_API_URL);
-            if (!response.ok) throw new Error('Erro na resposta da API');
-            
-            const data = await response.json();
-            const sensorList = Array.isArray(data) ? data : (data.data || []);
-
-            if (sensorList.length > 0) {
-                const formattedBeacons = sensorList.map(s => {
-                    const temp = Number(s.current_temp ?? s.temp ?? 0);
-                    const hum = Number(s.current_hum ?? s.hum ?? 0);
-                    const batt = Number(s.battery_level ?? s.batt ?? 0);
-                    const rssi = Number(s.rssi ?? 0);
-                    const ts = s.last_seen || s.ts || new Date().toISOString();
-                    const lastSeenDate = new Date(ts);
-                    const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
-
-                    // Histórico para Gráficos
-                    if (!historyRef.current[s.mac]) { 
-                        historyRef.current[s.mac] = { labels: [], tempData: [], humData: [], battData: [] }; 
-                    }
-                    const hist = historyRef.current[s.mac];
-                    
-                    const lastLabel = hist.labels[hist.labels.length - 1];
-                    if (lastLabel !== timeLabel) {
-                        if (hist.labels.length > 30) { 
-                            hist.labels.shift(); 
-                            hist.tempData.shift(); 
-                            hist.humData.shift(); 
-                            hist.battData.shift(); 
-                        }
-                        hist.labels.push(timeLabel);
-                        hist.tempData.push(temp);
-                        hist.humData.push(hum);
-                        hist.battData.push(batt);
-                    }
-
-                    return {
-                        mac: s.mac,
-                        device_name: s.name || s.device_name || `Sensor ${s.mac}`,
-                        temp: temp,
-                        hum: hum,
-                        batt: batt,
-                        rssi: rssi,
-                        ts: ts,
-                        lastSeen: lastSeenDate,
-                        gateway: s.gateway || s.gw,
-                        sector: s.sector
-                    };
-                });
-
-                setBeacons(formattedBeacons);
-                
-                // Calcula status geral
-                const onlineCount = formattedBeacons.filter(b => getStatus(b.lastSeen) === 'online').length;
-                setConnectionStatus(`Online (${onlineCount}/${formattedBeacons.length})`);
-
-                // Log
-                const newLogs = formattedBeacons.map(b => ({
-                    ...b,
-                    timestamp: b.lastSeen.toLocaleTimeString('pt-BR'),
-                    id: `${b.mac}_${b.lastSeen.getTime()}`
-                }));
-
-                setMessageLog(prev => {
-                    const uniqueNewLogs = newLogs.filter(n => !prev.some(p => p.id === n.id));
-                    if (uniqueNewLogs.length === 0) return prev;
-                    return [...uniqueNewLogs, ...prev].slice(0, 200);
-                });
-            } else {
-                setConnectionStatus('Sem Sensores');
-            }
-
-        } catch (error) {
-            console.error("Erro no fetch:", error);
-            setConnectionStatus('Offline / Erro API');
-        }
-    }, [setBeacons, setMessageLog, getStatus, historyRef]);
-
-    // Polling de dados
-    useEffect(() => {
-        fetchData();
-        const interval = setInterval(fetchData, 60000); 
-        return () => clearInterval(interval);
-    }, [fetchData]);
+    };
 
     // Timer visual para atualizar status online/offline
     useEffect(() => {
         const interval = setInterval(() => setTick(t => t + 1), 2000);
         return () => clearInterval(interval);
     }, []);
-
-    const handleSaveSectors = (newSectors) => {
-        setSectors(newSectors);
-        localStorage.setItem('alcateia_sectors', JSON.stringify(newSectors));
-    };
 
     const handleSaveSettings = (newSettings) => {
         setSettings(newSettings);
@@ -222,7 +118,7 @@ const Layout = ({ beacons, setBeacons, sectors, setSectors, settings, setSetting
                             >
                                 <i className="pi pi-box text-xs"></i>
                                 <span className="text-xs font-medium flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">
-                                    {b.device_name || b.mac.slice(-5)}
+                                    {b.display_name || b.mac.slice(-5)}
                                 </span>
                                 <div className={`w-2 h-2 border-circle ml-2 ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} title={isOnline ? 'Online' : 'Offline'}></div>
                                 {b.temp > settings.tempCritical && <i className="pi pi-exclamation-triangle text-rose-500 text-xs ml-1 animate-pulse"></i>}
@@ -272,4 +168,3 @@ const Layout = ({ beacons, setBeacons, sectors, setSectors, settings, setSetting
 };
 
 export default Layout;
-

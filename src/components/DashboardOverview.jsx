@@ -98,7 +98,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                                             <div className={`sensor-grid-card ${isCritical ? 'border-rose-200 bg-rose-50/30' : ''} ${isOffline ? 'opacity-60 grayscale' : ''}`} onClick={() => onSelect(beacon)}>
                                                 <div className="flex justify-content-between align-items-start mb-3">
                                                     <div>
-                                                        <span className="text-sm font-bold text-slate-800 block mb-1">{beacon.device_name || 'Sensor'}</span>
+                                                        <span className="text-sm font-bold text-slate-800 block mb-1">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
                                                         <span className="text-[10px] font-mono text-slate-400">{beacon.mac.slice(-5)}</span>
                                                     </div>
                                                     {isOffline ? <span className="status-badge neutral">Offline</span> : (
@@ -150,7 +150,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                                     <div className="sensor-grid-card opacity-80" onClick={() => onSelect(beacon)}>
                                         <div className="flex justify-content-between align-items-start mb-3">
                                             <div>
-                                                <span className="text-sm font-bold text-slate-700">{beacon.device_name || 'Sensor'}</span>
+                                                <span className="text-sm font-bold text-slate-700">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
                                                 {beacon.loc && <span className="text-xs text-slate-500 block mt-1">{beacon.loc}</span>}
                                             </div>
                                             <span className="status-badge neutral">Novo</span>
