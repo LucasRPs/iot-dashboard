@@ -77,6 +77,35 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
 
             {/* SECTORS GRID */}
             <div className="flex flex-column gap-4">
+                {/* Unassigned Beacons */}
+                {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).length > 0 && (
+                    <div>
+                        <div className="flex align-items-center gap-2 mb-3 px-1">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Não Atribuídos</h3>
+                            <div className="h-1px bg-gray-200 flex-grow-1"></div>
+                        </div>
+                        <div className="grid">
+                            {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).map(beacon => (
+                                <div key={beacon.mac} className="col-12 md:col-6 lg:col-4 xl:col-3">
+                                    <div className="sensor-grid-card opacity-80" onClick={() => onSelect(beacon)}>
+                                        <div className="flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <span className="text-sm font-bold text-slate-700">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
+                                                {beacon.loc && <span className="text-xs text-slate-500 block mt-1">{beacon.loc}</span>}
+                                            </div>
+                                            <span className="status-badge neutral">Novo</span>
+                                        </div>
+                                        <div className="flex align-items-end justify-content-between">
+                                            <span className="text-xl font-bold text-slate-600 text-value">{beacon.temp}°C</span>
+                                            <span className="text-xs text-slate-400 font-mono">{beacon.mac}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {sectors.map(sector => {
                     const sectorBeacons = beacons.filter(b => sector.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()));
                     if (sectorBeacons.length === 0) return null;
@@ -136,35 +165,6 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                         </div>
                     );
                 })}
-
-                {/* Unassigned Beacons */}
-                {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).length > 0 && (
-                    <div>
-                        <div className="flex align-items-center gap-2 mb-3 px-1">
-                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Não Atribuídos</h3>
-                            <div className="h-1px bg-gray-200 flex-grow-1"></div>
-                        </div>
-                        <div className="grid">
-                            {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).map(beacon => (
-                                <div key={beacon.mac} className="col-12 md:col-6 lg:col-4 xl:col-3">
-                                    <div className="sensor-grid-card opacity-80" onClick={() => onSelect(beacon)}>
-                                        <div className="flex justify-content-between align-items-start mb-3">
-                                            <div>
-                                                <span className="text-sm font-bold text-slate-700">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
-                                                {beacon.loc && <span className="text-xs text-slate-500 block mt-1">{beacon.loc}</span>}
-                                            </div>
-                                            <span className="status-badge neutral">Novo</span>
-                                        </div>
-                                        <div className="flex align-items-end justify-content-between">
-                                            <span className="text-xl font-bold text-slate-600 text-value">{beacon.temp}°C</span>
-                                            <span className="text-xs text-slate-400 font-mono">{beacon.mac}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

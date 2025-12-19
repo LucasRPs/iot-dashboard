@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { InputMask } from 'primereact/inputmask';
@@ -7,32 +7,33 @@ import { Button } from 'primereact/button';
 const SENSORS_API_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/beacon/list';
 const GATEWAY_RESET_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/reset';
 const GATEWAY_ADD_MAC_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/new-mac';
+const GATEWAY_REMOVE_MAC_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/remove-mac';
 
 const GatewaysView = ({ onSelectBeacon }) => {
     const [beacons, setBeacons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [macInputs, setMacInputs] = useState({});
 
-    useEffect(() => {
-        const fetchGatewayData = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch(SENSORS_API_URL);
-                if (!response.ok) throw new Error('Falha ao buscar dados dos sensores.');
-                
-                const data = await response.json();
-                const sensorList = Array.isArray(data) ? data : (data.data || []);
-                setBeacons(sensorList);
-            } catch (error) {
-                console.error("Erro ao carregar dados para GatewaysView:", error);
-                setBeacons([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchGatewayData();
+    const fetchGatewayData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(SENSORS_API_URL);
+            if (!response.ok) throw new Error('Falha ao buscar dados dos sensores.');
+            
+            const data = await response.json();
+            const sensorList = Array.isArray(data) ? data : (data.data || []);
+            setBeacons(sensorList);
+        } catch (error) {
+            console.error("Erro ao carregar dados para GatewaysView:", error);
+            setBeacons([]);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchGatewayData();
+    }, [fetchGatewayData]);
 
     // Agrupa os beacons por gateway
     const gatewayData = useMemo(() => {
@@ -98,8 +99,23 @@ const GatewaysView = ({ onSelectBeacon }) => {
                 method: 'POST'
             });
             setMacInputs(prev => ({ ...prev, [gatewayMac]: '' }));
+            fetchGatewayData();
         } catch (error) {
             console.error("Erro ao adicionar MAC:", error);
+        }
+    };
+
+    const handleRemoveBeacon = async (gatewayMac, beaconMac) => {
+        try {
+            const url = new URL(GATEWAY_REMOVE_MAC_URL);
+            url.searchParams.append('gw', gatewayMac);
+            url.searchParams.append('mac', beaconMac);
+            await fetch(url.toString(), {
+                method: 'POST'
+            });
+            fetchGatewayData();
+        } catch (error) {
+            console.error("Erro ao remover beacon:", error);
         }
     };
 
@@ -143,11 +159,20 @@ const GatewaysView = ({ onSelectBeacon }) => {
                                         {gw.beacons.map((beacon) => (
                                             <div
                                                 key={beacon.mac}
-                                                className="text-slate-700 font-medium text-sm cursor-pointer hover:text-indigo-600 transition-all p-2 bg-slate-50/80 border-round-md"
-                                                onClick={() => onSelectBeacon(beacon)}
+                                                className="flex align-items-center justify-content-between p-2 bg-slate-50/80 border-round-md hover:bg-slate-100 transition-colors"
                                             >
-                                                <i className="pi pi-box text-xs mr-2 text-slate-400"></i>
-                                                {beacon.display_name || beacon.device_name || beacon.mac.slice(-5)}
+                                                <div 
+                                                    className="text-slate-700 font-medium text-sm cursor-pointer hover:text-indigo-600 flex align-items-center flex-grow-1"
+                                                    onClick={() => onSelectBeacon(beacon)}
+                                                >
+                                                    <i className="pi pi-box text-xs mr-2 text-slate-400"></i>
+                                                    {beacon.display_name || beacon.device_name || beacon.mac.slice(-5)}
+                                                </div>
+                                                <Button 
+                                                    icon="pi pi-trash" 
+                                                    className="p-button-rounded p-button-text p-button-danger w-2rem h-2rem" 
+                                                    onClick={() => handleRemoveBeacon(gw.gateway, beacon.mac)}
+                                                />
                                             </div>
                                         ))}
                                     </div>
