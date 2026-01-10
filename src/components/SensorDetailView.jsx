@@ -1,31 +1,75 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart } from 'primereact/chart';
 import { Button } from 'primereact/button';
+import { SelectButton } from 'primereact/selectbutton';
 import { InputText } from 'primereact/inputtext';
 import { Dialog } from 'primereact/dialog';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
-// URL do Webhook de Histórico (Configure no n8n para aceitar query params ?mac=...&range=...)
+// --- CONSTANTS ---
 const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
 const N8N_EDIT_SENSOR_URL = 'https://n8n.alcateia-ia.com/webhook/edit/sensor';
 const N8N_CONFIG_URL = 'https://n8n.alcateia-ia.com/webhook/sensor/configuration';
+const periodOptions = [
+    { label: '1H', value: '1h' },
+    { label: '24H', value: '24h' },
+    { label: '7D', value: '7d' }
+];
 
-const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [newName, setNewName] = useState(beacon?.device_name || '');
-    const [period, setPeriod] = useState('24h');
+// --- CUSTOM HOOKS (could be moved to a separate hooks file) ---
+
+/**
+ * Fetches sensor history data from the API.
+ * @param {string} mac - The MAC address of the sensor.
+ * @param {string} period - The time range for the history ('1h', '24h', '7d').
+ */
+const useSensorHistory = (mac, period) => {
     const [historyData, setHistoryData] = useState([]);
-    const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(false);
-    const toast = useRef(null);
+    const [error, setError] = useState(null);
 
-    // Sincroniza o nome ao mudar de beacon
     useEffect(() => {
-        setNewName(beacon?.device_name || '');
-    }, [beacon?.device_name]);
+        if (!mac) return;
 
-    // --- FETCH CONFIGURAÇÃO DO SENSOR (Nome, etc) ---
+        const fetchHistory = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const url = new URL(N8N_HISTORY_URL);
+                url.searchParams.append('mac', mac);
+                url.searchParams.append('range', period);
+
+                const response = await fetch(url.toString());
+                if (!response.ok) throw new Error('Falha ao buscar histórico');
+
+                const data = await response.json();
+                const readings = Array.isArray(data) ? data : (data.data || []);
+                setHistoryData(readings);
+            } catch (err) {
+                console.error("Erro ao carregar histórico:", err);
+                setError(err);
+                setHistoryData([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchHistory();
+        const interval = setInterval(fetchHistory, 60000);
+
+        return () => clearInterval(interval);
+    }, [mac, period]);
+
+    return { historyData, loading, error };
+};
+
+/**
+ * Fetches and syncs sensor configuration (e.g., display name).
+ * @param {object} beacon - The current beacon object.
+ * @param {function} onUpdate - Callback to update the beacon's data.
+ */
+const useSensorConfig = (beacon, onUpdate) => {
     useEffect(() => {
         if (!beacon?.mac || !onUpdate) return;
 
@@ -36,57 +80,101 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                 const response = await fetch(url.toString());
                 if (response.ok) {
                     const data = await response.json();
-                    // A API retorna um array, então pegamos o primeiro item.
                     if (Array.isArray(data) && data.length > 0 && data[0].display_name && data[0].display_name !== beacon.device_name) {
                         onUpdate({ ...beacon, device_name: data[0].display_name });
                     }
                 }
-            } catch (error) { console.error("Erro ao buscar configuração do sensor:", error); }
-        };
-        fetchConfig();
-    }, [beacon?.mac, onUpdate]);
-
-    // --- FETCH HISTORY DO N8N (Disparado quando MAC ou Period mudam, e a cada 1 minuto) ---
-    useEffect(() => {
-        if (!beacon?.mac) return;
-
-        const fetchHistory = async () => {
-            setLoading(true);
-            try {
-                // Monta a URL com Query Params
-                const url = new URL(N8N_HISTORY_URL);
-                url.searchParams.append('mac', beacon.mac);
-                url.searchParams.append('range', period); // '1h', '24h', '7d'
-
-                const response = await fetch(url.toString());
-                
-                if (!response.ok) throw new Error('Falha ao buscar histórico');
-
-                const data = await response.json();
-                
-                // O n8n deve retornar um array de leituras. 
-                // Se retornar { data: [...] }, ajuste para data.data
-                const readings = Array.isArray(data) ? data : (data.data || []);
-                setHistoryData(readings);
-
             } catch (error) {
-                console.error("Erro ao carregar histórico:", error);
-                toast.current?.show({ severity: 'error', summary: 'Erro', detail: 'Não foi possível carregar o histórico.', life: 3000 });
-                setHistoryData([]); // Limpa em caso de erro
-            } finally {
-                setLoading(false);
+                console.error("Erro ao buscar configuração do sensor:", error);
             }
         };
 
-        // Carrega imediatamente ao montar ou quando MAC/period mudam
-        fetchHistory();
-        
-        // Configura intervalo de 1 minuto (60000 ms) para atualizar automaticamente
-        const interval = setInterval(fetchHistory, 60000);
-        
-        // Limpa o intervalo quando o componente desmonta ou dependências mudam
-        return () => clearInterval(interval);
-    }, [beacon?.mac, period]); 
+        fetchConfig();
+    }, [beacon?.mac, beacon?.device_name, onUpdate]);
+};
+
+// --- HELPER FUNCTIONS (could be moved to a utils file) ---
+
+/**
+ * Processes history data for Chart.js.
+ * @param {Array} historyData - The raw history data from the API.
+ * @param {string} period - The selected time period.
+ * @returns {object} - The data formatted for the Chart component.
+ */
+const processHistoryForChart = (historyData, period) => {
+    if (!historyData || historyData.length === 0) return { labels: [], datasets: [] };
+
+    const sorted = [...historyData].sort((a, b) => new Date(a.created_at || a.ts) - new Date(b.created_at || b.ts));
+
+    const labels = [];
+    const tempData = [];
+    const humData = [];
+
+    sorted.forEach(log => {
+        const dateStr = log.created_at || log.ts;
+        if (!dateStr) return;
+
+        const dateObj = new Date(dateStr);
+        const label = period === '7d'
+            ? dateObj.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        labels.push(label);
+        tempData.push(Number(log.temperature ?? log.temp ?? 0));
+        humData.push(Number(log.humidity ?? log.hum ?? 0));
+    });
+
+    return {
+        labels,
+        datasets: [
+            {
+                label: 'Temp',
+                data: tempData,
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                yAxisID: 'y',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                borderWidth: 2
+            },
+            {
+                label: 'Umid',
+                data: humData,
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.05)',
+                yAxisID: 'y1',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                borderWidth: 2
+            }
+        ]
+    };
+};
+
+const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [newName, setNewName] = useState(beacon?.device_name || '');
+    const [period, setPeriod] = useState('24h');
+    const [isSaving, setIsSaving] = useState(false);
+    const toast = useRef(null);
+
+    // Sincroniza o nome ao mudar de beacon
+    useEffect(() => {
+        setNewName(beacon?.device_name || '');
+    }, [beacon?.device_name]);
+
+    // --- DATA FETCHING ---
+    useSensorConfig(beacon, onUpdate);
+    const { historyData, loading, error: historyError } = useSensorHistory(beacon?.mac, period);
+
+    // --- ERROR HANDLING ---
+    useEffect(() => {
+        if (historyError) {
+            toast.current?.show({ severity: 'error', summary: 'Erro', detail: 'Não foi possível carregar o histórico.', life: 3000 });
+        }
+    }, [historyError]);
 
     if (!beacon) return null;
 
@@ -122,62 +210,7 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
         }
     };
 
-    // Processa os dados recebidos da API para o formato do Chart.js
-    const chartData = useMemo(() => {
-        if (!historyData || historyData.length === 0) return { labels: [], datasets: [] };
-
-        // Ordena por data (garantia)
-        const sorted = [...historyData].sort((a, b) => new Date(a.created_at || a.ts) - new Date(b.created_at || b.ts));
-
-        const labels = [];
-        const tempData = [];
-        const humData = [];
-
-        sorted.forEach(log => {
-            // Suporta campos 'created_at' (banco) ou 'ts' (mqtt raw)
-            const dateStr = log.created_at || log.ts; 
-            if (!dateStr) return;
-
-            const dateObj = new Date(dateStr);
-            // Formatação do label eixo X
-            const label = period === '7d' 
-                ? dateObj.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' }) 
-                : dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
-
-            labels.push(label);
-            // Suporta 'temperature' (banco) ou 'temp' (raw)
-            tempData.push(Number(log.temperature ?? log.temp ?? 0));
-            humData.push(Number(log.humidity ?? log.hum ?? 0));
-        });
-
-        return {
-            labels,
-            datasets: [
-                { 
-                    label: 'Temp', 
-                    data: tempData, 
-                    borderColor: '#f97316', 
-                    backgroundColor: 'rgba(249, 115, 22, 0.1)', 
-                    yAxisID: 'y', 
-                    fill: true, 
-                    tension: 0.4, 
-                    pointRadius: 0, 
-                    borderWidth: 2 
-                },
-                { 
-                    label: 'Umid', 
-                    data: humData, 
-                    borderColor: '#0ea5e9', 
-                    backgroundColor: 'rgba(14, 165, 233, 0.05)', 
-                    yAxisID: 'y1', 
-                    fill: true, 
-                    tension: 0.4, 
-                    pointRadius: 0, 
-                    borderWidth: 2 
-                }
-            ]
-        };
-    }, [historyData, period]);
+    const chartData = useMemo(() => processHistoryForChart(historyData, period), [historyData, period]);
 
     return (
         <div className="h-full flex flex-column gap-4">
@@ -191,13 +224,14 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     <div>
                         <div className="flex align-items-center gap-2">
                             <h1 className="text-2xl font-bold text-slate-800 m-0">{beacon.device_name || 'Sensor'}</h1>
-                            <Button icon="pi pi-pencil" rounded text size="small" style={{ color: 'var(--text-secondary)', width: '2rem', height: '2rem' }} onClick={() => { setNewName(beacon.device_name || ''); setIsEditing(true); }} />
+                            <Button icon="pi pi-pencil" rounded text size="small" tooltip="Editar nome" tooltipOptions={{ position: 'top' }} style={{ color: 'var(--text-secondary)', width: '2rem', height: '2rem' }} onClick={() => { setNewName(beacon.device_name || ''); setIsEditing(true); }} />
                         </div>
                         <span className="text-xs font-mono text-slate-500">{beacon.mac}</span>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button label="Exportar CSV" icon="pi pi-download" size="small" style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', padding: '0.4rem 0.6rem' }} />
+                    {/* TODO: Implementar a funcionalidade de exportação de CSV */}
+                    <Button label="Exportar CSV" icon="pi pi-download" size="small" disabled style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', padding: '0.4rem 0.6rem' }} />
                 </div>
             </div>
 
@@ -249,16 +283,22 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
             <div className="widget-card flex-grow-1 flex flex-column min-h-0">
                 <div className="flex justify-content-between align-items-center mb-4">
                     <h3 className="text-sm font-bold text-slate-700">Histórico de Temperatura</h3>
-                    <div className="flex gap-2">
-                        <button type="button" onClick={() => setPeriod('1h')} className={`text-xs font-bold ${period === '1h' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'} cursor-pointer px-3 py-1 rounded transition-colors border-none`}>1H</button>
-                        <button type="button" onClick={() => setPeriod('24h')} className={`text-xs font-bold ${period === '24h' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'} cursor-pointer px-3 py-1 rounded transition-colors border-none`}>24H</button>
-                        <button type="button" onClick={() => setPeriod('7d')} className={`text-xs font-bold ${period === '7d' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'} cursor-pointer px-3 py-1 rounded transition-colors border-none`}>7D</button>
-                    </div>
+                    <SelectButton 
+                        value={period} 
+                        options={periodOptions} 
+                        onChange={(e) => e.value && setPeriod(e.value)} 
+                        unselectable={false}
+                    />
                 </div>
                 <div className="flex-grow-1 relative">
                     {loading ? (
                         <div className="flex align-items-center justify-content-center h-full w-full">
                             <ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="4" animationDuration=".5s"/>
+                        </div>
+                    ) : (!historyData || historyData.length === 0) ? (
+                        <div className="flex flex-column align-items-center justify-content-center h-full w-full text-slate-400">
+                            <i className="pi pi-info-circle text-4xl mb-3 opacity-20"></i>
+                            <span className="text-sm font-medium opacity-60">Nenhum dado histórico disponível para este período.</span>
                         </div>
                     ) : (
                         <Chart type="line" data={chartData} options={chartOptions} className="h-full w-full absolute" />

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation, useNavigate, Outlet, NavLink } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
 import SettingsModal from './SettingsModal';
 
@@ -13,7 +13,6 @@ const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offli
 const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectionStatus }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const logsInitializedRef = useRef(false);
     const [showSettings, setShowSettings] = useState(false);
     const [tick, setTick] = useState(0);
 
@@ -30,9 +29,8 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
         if (savedSettings) { 
             setSettings(JSON.parse(savedSettings)); 
         }
-
-        logsInitializedRef.current = true;
-    }, [setSectors, setSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Função auxiliar para calcular status online/offline
     const getStatus = (lastSeenDate) => {
@@ -58,18 +56,18 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
     };
 
     // Determina o título e breadcrumb baseado na rota atual
-    const getPageInfo = () => {
+    const pageInfo = useMemo(() => {
         const path = location.pathname;
-        if (path === '/dashboard') return { title: 'Visão Geral da Operação', breadcrumb: 'Dashboard' };
-        if (path === '/reports') return { title: 'Análise de Dados', breadcrumb: 'Relatórios' };
-        if (path === '/gateways') return { title: 'Gateways', breadcrumb: 'Gateways' };
-        if (path === '/config') return { title: 'Gerenciamento de Setores', breadcrumb: 'Configuração' };
+        const pathMap = {
+            '/dashboard': { title: 'Visão Geral da Operação', breadcrumb: 'Dashboard' },
+            '/reports': { title: 'Análise de Dados', breadcrumb: 'Relatórios' },
+            '/gateways': { title: 'Gateways', breadcrumb: 'Gateways' },
+            '/config': { title: 'Gerenciamento de Setores', breadcrumb: 'Configuração' },
+        };
         if (path.startsWith('/sensor/')) return { title: 'Detalhes do Dispositivo', breadcrumb: 'Detalhes do Sensor' };
-        return { title: 'Dashboard', breadcrumb: 'Dashboard' };
-    };
+        return pathMap[path] || { title: 'Dashboard', breadcrumb: 'Dashboard' };
+    }, [location.pathname]);
 
-    const pageInfo = getPageInfo();
-    const isActive = (path) => location.pathname === path || (path === '/dashboard' && location.pathname === '/');
 
     return (
         <div className="layout-shell">
@@ -84,28 +82,28 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
 
                 <div className="flex-grow-1 overflow-y-auto py-3 custom-scrollbar">
                     <div className="text-label px-4 mb-2 mt-2">Monitoramento</div>
-                    <Link to="/dashboard" className={`nav-item ${isActive('/dashboard') ? 'active' : ''}`}>
+                    <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <i className="pi pi-th-large"></i>
                         <span>Visão Geral</span>
-                    </Link>
-                    <Link to="/reports" className={`nav-item ${isActive('/reports') ? 'active' : ''}`}>
+                    </NavLink>
+                    <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <i className="pi pi-chart-line"></i>
                         <span>Relatórios</span>
-                    </Link>
-                    <Link to="/gateways" className={`nav-item ${isActive('/gateways') ? 'active' : ''}`}>
+                    </NavLink>
+                    <NavLink to="/gateways" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <i className="pi pi-server"></i>
                         <span>Gateways</span>
-                    </Link>
+                    </NavLink>
 
                     <div className="text-label px-4 mb-2 mt-5">Gerenciamento</div>
-                    <Link to="/config" className={`nav-item ${isActive('/config') ? 'active' : ''}`}>
+                    <NavLink to="/config" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <i className="pi pi-cog"></i>
                         <span>Setores</span>
-                    </Link>
-                    <div className="nav-item" onClick={() => setShowSettings(true)}>
+                    </NavLink>
+                    <button type="button" className="nav-item text-left w-full" onClick={() => setShowSettings(true)}>
                         <i className="pi pi-cog"></i>
                         <span>Configurações</span>
-                    </div>
+                    </button>
                     
                     <div className="text-label px-4 mb-2 mt-5">Dispositivos ({beacons.length})</div>
                     {beacons.map(b => {
@@ -118,9 +116,9 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
                             >
                                 <i className="pi pi-box text-xs"></i>
                                 <span className="text-xs font-medium flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">
-                                    {b.display_name || b.mac.slice(-5)}
+                                    {b.display_name || (b.mac ? b.mac.slice(-5) : 'Unknown')}
                                 </span>
-                                <div className={`w-2 h-2 border-circle ml-2 ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} title={isOnline ? 'Online' : 'Offline'}></div>
+                                <div className={`w-2 h-2 border-circle ml-2 ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} title={isOnline ? `Online - Visto por último: ${new Date(b.lastSeen).toLocaleString('pt-BR')}` : `Offline - Visto por último: ${b.lastSeen ? new Date(b.lastSeen).toLocaleString('pt-BR') : 'Nunca'}`}></div>
                                 {b.temp > settings.tempCritical && <i className="pi pi-exclamation-triangle text-rose-500 text-xs ml-1 animate-pulse"></i>}
                             </Link>
                         );
@@ -135,7 +133,9 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
                         </div>
                         <div className="flex align-items-center gap-2">
                             <span className="text-[10px] text-slate-400 font-mono">v2.3.0</span>
-                            <i className="pi pi-sign-out text-slate-400 cursor-pointer hover:text-slate-600" onClick={handleLogout} title="Sair"></i>
+                            <button onClick={handleLogout} title="Sair" className="p-0 border-none bg-transparent cursor-pointer" aria-label="Sair">
+                                <i className="pi pi-sign-out text-slate-400 hover:text-slate-600"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
