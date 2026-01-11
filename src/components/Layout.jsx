@@ -116,16 +116,10 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
 
                 <div className="p-3 mt-auto border-top-1 border-gray-100 bg-gray-50">
                     <div className="flex align-items-center justify-content-between">
-                        <div className="flex align-items-center gap-2">
-                            <div className={`w-2 h-2 border-circle ${connectionStatus.includes('Online') ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                            <span className="text-xs font-bold text-slate-600">{connectionStatus}</span>
-                        </div>
-                        <div className="flex align-items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-mono">v2.3.0</span>
-                            <button onClick={handleLogout} title="Sair" className="p-0 border-none bg-transparent cursor-pointer" aria-label="Sair">
-                                <i className="pi pi-sign-out text-slate-400 hover:text-slate-600"></i>
-                            </button>
-                        </div>
+                        <button onClick={handleLogout} title="Sair" className="p-0 border-none bg-transparent cursor-pointer" aria-label="Sair">
+                            <i className="pi pi-sign-out text-slate-400 hover:text-slate-600"></i>
+                        </button>
+                        <span className="text-[10px] text-slate-400 font-mono">v2.3.0</span>
                     </div>
                 </div>
             </div>

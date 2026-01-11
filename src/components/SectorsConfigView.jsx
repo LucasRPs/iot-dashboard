@@ -103,7 +103,6 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
     return (
         <div className="h-full flex flex-column p-2">
             <div className="tech-card p-4 h-full flex flex-column">
-                <Tooltip target=".sector-badge" mouseTrack mouseTrackLeft={10} />
                 <div className="flex justify-content-between align-items-center mb-4">
                     <div>
                         <h2 className="m-0 text-slate-800 text-lg font-bold">Setores</h2>
@@ -145,30 +144,8 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                                                 <div className="flex flex-wrap gap-2">
                                                     {s.macs.length === 0 && <span className="text-gray-400 text-xs italic">Vazio</span>}
                                                     {s.macs.map((mac, i) => {
-                                                        const beacon = (detectedBeacons || []).find(b => b.mac && b.mac.toLowerCase() === mac.toLowerCase());
-                                                        const isOnline = !!beacon;
-                                                        const seenLabel = beacon && (beacon.ts || beacon.timestamp) ? (beacon.ts ? new Date(beacon.ts).toLocaleString('pt-BR') : beacon.timestamp) : null;
-                                                        const gw = beacon && (beacon.gw || beacon.gateway) ? (beacon.gw || beacon.gateway) : '-';
-                                                        const rssi = beacon && (beacon.rssi !== undefined) ? `${beacon.rssi} dBm` : '-';
-                                                        const batt = beacon && (beacon.batt !== undefined) ? `${beacon.batt}%` : '-';
-                                                        const loc = beacon && beacon.loc ? beacon.loc : '-';
-                                                        const tsLabel = seenLabel || '-';
-                                                        const tooltip = isOnline ? `Online — ${tsLabel}\nGateway: ${gw}\nRSSI: ${rssi}\nBat: ${batt}\nLocal: ${loc}` : 'Offline';
                                                         return (
                                                             <div key={i} className="flex align-items-center gap-2">
-                                                                <span
-                                                                    className="sector-badge"
-                                                                    data-pr-tooltip={tooltip}
-                                                                    data-pr-position="top"
-                                                                    aria-label={tooltip}
-                                                                    style={{
-                                                                        width: 10,
-                                                                        height: 10,
-                                                                        borderRadius: 9999,
-                                                                        display: 'inline-block',
-                                                                        background: isOnline ? '#10b981' : '#94a3b8'
-                                                                    }}
-                                                                />
                                                                 <Tag value={mac} className="font-mono text-[10px] bg-slate-100 text-slate-600 border-1 border-slate-200 px-1" />
                                                                 <button className="p-button p-button-text p-button-sm" onClick={() => removeSensorFromSector(s.id, mac)} title="Remover">
                                                                     <i className="pi pi-times text-red-500"></i>
