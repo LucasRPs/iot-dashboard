@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
-import { InputMask } from 'primereact/inputmask';
-import { Button } from 'primereact/button';
 
 const SENSORS_API_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/beacon/list';
-const GATEWAY_RESET_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/reset';
-const GATEWAY_ADD_MAC_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/new-mac';
-const GATEWAY_REMOVE_MAC_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/remove-mac';
 
 const GatewaysView = ({ onSelectBeacon }) => {
     const [beacons, setBeacons] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [macInputs, setMacInputs] = useState({});
 
     const fetchGatewayData = useCallback(async () => {
         setLoading(true);
@@ -77,48 +71,6 @@ const GatewaysView = ({ onSelectBeacon }) => {
             .sort((a, b) => a.gateway.localeCompare(b.gateway));
     }, [beacons]);
 
-    const handleCreateHotspot = async (gatewayMac) => {
-        try {
-            const url = new URL(GATEWAY_RESET_URL);
-            url.searchParams.append('gw', gatewayMac);
-            await fetch(url.toString());
-        } catch (error) {
-            console.error("Erro ao solicitar hotspot:", error);
-        }
-    };
-
-    const handleAddMac = async (gatewayMac) => {
-        const newMac = macInputs[gatewayMac];
-        if (!newMac) return;
-
-        try {
-            const url = new URL(GATEWAY_ADD_MAC_URL);
-            url.searchParams.append('gw', gatewayMac);
-            url.searchParams.append('newMac', newMac);
-            await fetch(url.toString(), {
-                method: 'POST'
-            });
-            setMacInputs(prev => ({ ...prev, [gatewayMac]: '' }));
-            fetchGatewayData();
-        } catch (error) {
-            console.error("Erro ao adicionar MAC:", error);
-        }
-    };
-
-    const handleRemoveBeacon = async (gatewayMac, beaconMac) => {
-        try {
-            const url = new URL(GATEWAY_REMOVE_MAC_URL);
-            url.searchParams.append('gw', gatewayMac);
-            url.searchParams.append('mac', beaconMac);
-            await fetch(url.toString(), {
-                method: 'POST'
-            });
-            fetchGatewayData();
-        } catch (error) {
-            console.error("Erro ao remover beacon:", error);
-        }
-    };
-
     return (
         <div className="h-full flex flex-column p-2">
             <div className="tech-card p-4 h-full flex flex-column">
@@ -168,36 +120,9 @@ const GatewaysView = ({ onSelectBeacon }) => {
                                                     <i className="pi pi-box text-xs mr-2 text-slate-400"></i>
                                                     {beacon.display_name || beacon.device_name || beacon.mac.slice(-5)}
                                                 </div>
-                                                <Button 
-                                                    icon="pi pi-trash" 
-                                                    className="p-button-rounded p-button-text p-button-danger w-2rem h-2rem" 
-                                                    onClick={() => handleRemoveBeacon(gw.gateway, beacon.mac)}
-                                                />
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* Add Device Input */}
-                                    <div className="flex gap-2 mt-3 pt-2 border-top-1 border-gray-100 align-items-center">
-                                        <InputMask 
-                                            mask="**:**:**:**:**:**" 
-                                            value={macInputs[gw.gateway] || ''} 
-                                            onChange={(e) => setMacInputs(prev => ({ ...prev, [gw.gateway]: e.value }))}
-                                            placeholder="Adicionar MAC do sensor"
-                                            className="p-inputtext-sm w-full text-xs h-2rem"
-                                        />
-                                        <Button 
-                                            icon="pi pi-plus" 
-                                            className="p-button-rounded p-button-text w-2rem h-2rem" 
-                                            onClick={() => handleAddMac(gw.gateway)}
-                                        />
-                                    </div>
-
-                                    <Button 
-                                        label="Criar hotspot do gateway" 
-                                        className="p-button-outlined p-button-secondary w-full mt-2 text-xs py-1" 
-                                        onClick={() => handleCreateHotspot(gw.gateway)}
-                                    />
 
                                     {/* Footer - Last Seen */}
                                     <span className="text-[9px] text-slate-400 font-mono mt-1">{gw.lastSeen}</span>

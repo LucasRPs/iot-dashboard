@@ -47,7 +47,6 @@ const ReportsView = () => {
                 <DataTable value={logs} paginator rows={30} header={header} globalFilter={globalFilter} loading={loading} className="h-full flex flex-column" stripedRows sortField="ts" sortOrder={-1} size="small" emptyMessage="Nenhum registro." tableStyle={{ minWidth: '50rem' }} scrollable scrollHeight="flex">
                     <Column field="ts" header="Horário" sortable style={{ width: '14%' }} body={d => <span className="text-slate-600 font-medium font-mono text-xs bg-slate-50 px-1 border-round">{d.ts ? new Date(d.ts).toLocaleString('pt-BR') : d.timestamp}</span>} />
                     <Column field="gw" header="Gateway" sortable style={{ width: '12%' }} body={d => <span className="font-bold text-slate-700 text-xs">{d.gw || '-'}</span>} />
-                    <Column field="loc" header="Local" sortable style={{ width: '14%' }} body={d => <span className="text-slate-600 text-xs italic">{d.loc || '-'}</span>} />
                     <Column field="mac" header="MAC" sortable style={{ width: '16%' }} body={d => <span className="font-mono text-[10px] text-gray-400">{d.mac}</span>} />
                     <Column field="temp" header="Temp" sortable body={d => <span className={`font-bold text-xs ${d.temp > 10 ? 'text-orange-600' : 'text-slate-700'}`}>{d.temp}°C</span>} />
                     <Column field="hum" header="Umid" sortable body={d => <span className="text-sky-600 font-bold text-xs">{d.hum}%</span>} />

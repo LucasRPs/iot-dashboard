@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate, Outlet, NavLink } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
-import SettingsModal from './SettingsModal';
 
 // --- CONFIGURAÇÕES ---
 const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
@@ -13,7 +12,6 @@ const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offli
 const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectionStatus }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const [showSettings, setShowSettings] = useState(false);
     const [tick, setTick] = useState(0);
 
     // Inicializa logs e carrega dados do localStorage
@@ -44,11 +42,6 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
         const interval = setInterval(() => setTick(t => t + 1), 2000);
         return () => clearInterval(interval);
     }, []);
-
-    const handleSaveSettings = (newSettings) => {
-        setSettings(newSettings);
-        localStorage.setItem('alcateia_settings', JSON.stringify(newSettings));
-    };
 
     const handleLogout = () => {
         localStorage.removeItem('alcateia_auth');
@@ -100,10 +93,6 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
                         <i className="pi pi-cog"></i>
                         <span>Setores</span>
                     </NavLink>
-                    <button type="button" className="nav-item text-left w-full" onClick={() => setShowSettings(true)}>
-                        <i className="pi pi-cog"></i>
-                        <span>Configurações</span>
-                    </button>
                     
                     <div className="text-label px-4 mb-2 mt-5">Dispositivos ({beacons.length})</div>
                     {beacons.map(b => {
@@ -161,8 +150,6 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings, connectio
                     <Outlet />
                 </div>
             </div>
-
-            <SettingsModal visible={showSettings} onHide={() => setShowSettings(false)} settings={settings} onSave={handleSaveSettings} />
         </div>
     );
 };
