@@ -185,7 +185,7 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                 </div>
             </div>
 
-            <Dialog visible={displayDialog} style={{ width: '400px' }} header="Setor" modal className="p-fluid" onHide={() => setDisplayDialog(false)}>
+            <Dialog visible={displayDialog} style={{ width: '400px'}} header="Setor" modal className="p-fluid " onHide={() => setDisplayDialog(false)}>
                 <div className="field mb-3">
                     <label htmlFor="name" className="text-slate-700 font-bold mb-1 block text-xs">Nome</label>
                     <InputText id="name" value={currentSector.name} onChange={(e) => setCurrentSector({ ...currentSector, name: e.target.value })} autoFocus className="border-gray-300 p-2 border-round w-full text-sm" placeholder="Ex: Câmara Fria 01" />

@@ -2,14 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart } from 'primereact/chart';
 import { Button } from 'primereact/button';
 import { SelectButton } from 'primereact/selectbutton';
-import { InputText } from 'primereact/inputtext';
-import { Dialog } from 'primereact/dialog';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
 // --- CONSTANTS ---
 const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
-const N8N_EDIT_SENSOR_URL = 'https://n8n.alcateia-ia.com/webhook/edit/sensor';
 const N8N_CONFIG_URL = 'https://n8n.alcateia-ia.com/webhook/sensor/configuration';
 const periodOptions = [
     { label: '1H', value: '1h' },
@@ -154,16 +151,8 @@ const processHistoryForChart = (historyData, period) => {
 };
 
 const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [newName, setNewName] = useState(beacon?.device_name || '');
     const [period, setPeriod] = useState('24h');
-    const [isSaving, setIsSaving] = useState(false);
     const toast = useRef(null);
-
-    // Sincroniza o nome ao mudar de beacon
-    useEffect(() => {
-        setNewName(beacon?.device_name || '');
-    }, [beacon?.device_name]);
 
     // --- DATA FETCHING ---
     useSensorConfig(beacon, onUpdate);
@@ -177,38 +166,6 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     }, [historyError]);
 
     if (!beacon) return null;
-
-    const handleSaveName = async () => {
-        const trimmed = (newName || '').trim();
-        if (!trimmed) {
-            toast.current?.show({ severity: 'warn', summary: 'Aviso', detail: 'Nome não pode ficar vazio', life: 2500 });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const url = new URL(N8N_EDIT_SENSOR_URL);
-            url.searchParams.append('mac', beacon.mac);
-            url.searchParams.append('name', trimmed);
-
-            const response = await fetch(url.toString(), {
-                method: 'PUT',
-            });
-
-            if (!response.ok) {
-                throw new Error('Falha ao atualizar o nome do sensor na API.');
-            }
-
-            onUpdate({ ...beacon, device_name: trimmed });
-            toast.current?.show({ severity: 'success', summary: 'Salvo', detail: 'Nome do sensor atualizado', life: 1800 });
-            setIsEditing(false);
-        } catch (error) {
-            console.error("Erro ao salvar nome do sensor:", error);
-            toast.current?.show({ severity: 'error', summary: 'Erro', detail: 'Não foi possível salvar o novo nome.', life: 3000 });
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     const chartData = useMemo(() => processHistoryForChart(historyData, period), [historyData, period]);
 
@@ -224,7 +181,6 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     <div>
                         <div className="flex align-items-center gap-2">
                             <h1 className="text-2xl font-bold text-slate-800 m-0">{beacon.device_name || 'Sensor'}</h1>
-                            <Button icon="pi pi-pencil" rounded text size="small" tooltip="Editar nome" tooltipOptions={{ position: 'top' }} style={{ color: 'var(--text-secondary)', width: '2rem', height: '2rem' }} onClick={() => { setNewName(beacon.device_name || ''); setIsEditing(true); }} />
                         </div>
                         <span className="text-xs font-mono text-slate-500">{beacon.mac}</span>
                     </div>
@@ -305,17 +261,6 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     )}
                 </div>
             </div>
-
-            <Dialog header="Editar Sensor" visible={isEditing} style={{ width: '300px' }} onHide={() => setIsEditing(false)}>
-                <div className="field">
-                    <label htmlFor="devName" className="block text-sm font-bold text-slate-700 mb-2">Nome do Dispositivo</label>
-                    <InputText id="devName" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus className="w-full" />
-                </div>
-                <div className="flex justify-content-end gap-2 mt-4">
-                    <Button label="Cancelar" text onClick={() => setIsEditing(false)} style={{ color: 'var(--text-secondary)' }} disabled={isSaving} />
-                    <Button label="Salvar" onClick={handleSaveName} className="btn-primary" loading={isSaving} />
-                </div>
-            </Dialog>
         </div>
     );
 };
