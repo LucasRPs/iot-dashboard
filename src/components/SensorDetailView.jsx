@@ -9,8 +9,8 @@ import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 
 // --- CONSTANTS ---
-const N8N_HISTORY_URL = 'http://localhost:3000/api/sensores';
-const SENSOR_CONFIG_URL = 'http://localhost:3000/api/dispositivos';
+const N8N_HISTORY_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores`;
+const SENSOR_CONFIG_URL = `${import.meta.env.VITE_API_BASE_URL}/dispositivos`;
 const periodOptions = [
     { label: '1H', value: '1h' },
     { label: '24H', value: '24h' },

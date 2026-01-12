@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
-const SENSORS_API_URL = 'http://localhost:3000/api/dispositivos';
+const SENSORS_API_URL = `${import.meta.env.VITE_API_BASE_URL}/dispositivos`;
 
 const GatewaysView = ({ onSelectBeacon }) => {
     const [beacons, setBeacons] = useState([]);

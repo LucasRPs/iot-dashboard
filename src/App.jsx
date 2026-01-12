@@ -19,7 +19,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // --- CONFIGURAÇÕES ---
-const N8N_API_URL = 'http://localhost:3000/api/sensores/latest';
+const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
 const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000; // 1 Hora para considerar Offline
 
 // --- APP PRINCIPAL ---

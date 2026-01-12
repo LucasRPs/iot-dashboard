@@ -3,7 +3,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
 
-const REPORTS_API_URL = 'http://localhost:3000/api/sensores';
+const REPORTS_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores`;
 
 const ReportsView = () => {
     const [logs, setLogs] = useState([]);
