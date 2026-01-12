@@ -3,7 +3,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { InputText } from 'primereact/inputtext';
 
-const REPORTS_API_URL = 'https://n8n.alcateia-ia.com/webhook/reports';
+const REPORTS_API_URL = 'http://localhost:3000/api/sensores';
 
 const ReportsView = () => {
     const [logs, setLogs] = useState([]);
@@ -14,7 +14,11 @@ const ReportsView = () => {
         const fetchReports = async () => {
             setLoading(true);
             try {
-                const response = await fetch(REPORTS_API_URL);
+                const response = await fetch(REPORTS_API_URL, {
+                    headers: {
+                        'x-api-key': import.meta.env.VITE_API_KEY
+                    }
+                });
                 const data = await response.json();
                 setLogs(Array.isArray(data) ? data : []);
             } catch (error) {

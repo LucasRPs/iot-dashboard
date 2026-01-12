@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
-const SENSORS_API_URL = 'https://n8n.alcateia-ia.com/webhook/gateway/beacon/list';
+const SENSORS_API_URL = 'http://localhost:3000/api/dispositivos';
 
 const GatewaysView = ({ onSelectBeacon }) => {
     const [beacons, setBeacons] = useState([]);
@@ -11,7 +11,11 @@ const GatewaysView = ({ onSelectBeacon }) => {
     const fetchGatewayData = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await fetch(SENSORS_API_URL);
+            const response = await fetch(SENSORS_API_URL, {
+                headers: {
+                    'x-api-key': import.meta.env.VITE_API_KEY
+                }
+            });
             if (!response.ok) throw new Error('Falha ao buscar dados dos sensores.');
             
             const data = await response.json();

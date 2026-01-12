@@ -4,10 +4,13 @@ import { Button } from 'primereact/button';
 import { SelectButton } from 'primereact/selectbutton';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
+import { Dialog } from 'primereact/dialog';
+import { InputText } from 'primereact/inputtext';
+import { InputNumber } from 'primereact/inputnumber';
 
 // --- CONSTANTS ---
-const N8N_HISTORY_URL = 'https://n8n.alcateia-ia.com/webhook/history';
-const N8N_CONFIG_URL = 'https://n8n.alcateia-ia.com/webhook/sensor/configuration';
+const N8N_HISTORY_URL = 'http://localhost:3000/api/sensores';
+const SENSOR_CONFIG_URL = 'http://localhost:3000/api/dispositivos';
 const periodOptions = [
     { label: '1H', value: '1h' },
     { label: '24H', value: '24h' },
@@ -17,77 +20,54 @@ const periodOptions = [
 // --- CUSTOM HOOKS (could be moved to a separate hooks file) ---
 
 /**
- * Fetches sensor history data from the API.
+ * Fetches sensor data (history + info) from the API.
  * @param {string} mac - The MAC address of the sensor.
  * @param {string} period - The time range for the history ('1h', '24h', '7d').
  */
-const useSensorHistory = (mac, period) => {
+const useSensorData = (mac, period) => {
     const [historyData, setHistoryData] = useState([]);
+    const [sensorInfo, setSensorInfo] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         if (!mac) return;
 
-        const fetchHistory = async () => {
+        const fetchData = async () => {
             setLoading(true);
             setError(null);
             try {
-                const url = new URL(N8N_HISTORY_URL);
-                url.searchParams.append('mac', mac);
-                url.searchParams.append('range', period);
+                const url = new URL(`${N8N_HISTORY_URL}/${mac}`);
+                url.searchParams.append('period', period);
 
-                const response = await fetch(url.toString());
-                if (!response.ok) throw new Error('Falha ao buscar histórico');
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        'x-api-key': import.meta.env.VITE_API_KEY
+                    }
+                });
+                if (!response.ok) throw new Error('Falha ao buscar dados do sensor');
 
                 const data = await response.json();
-                const readings = Array.isArray(data) ? data : (data.data || []);
-                setHistoryData(readings);
+                
+                setHistoryData(data.history || []);
+                setSensorInfo(data.info || null);
             } catch (err) {
-                console.error("Erro ao carregar histórico:", err);
+                console.error("Erro ao carregar dados:", err);
                 setError(err);
                 setHistoryData([]);
+                setSensorInfo(null);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHistory();
-        const interval = setInterval(fetchHistory, 60000);
+        fetchData();
+        const interval = setInterval(fetchData, 60000);
 
         return () => clearInterval(interval);
     }, [mac, period]);
 
-    return { historyData, loading, error };
-};
-
-/**
- * Fetches and syncs sensor configuration (e.g., display name).
- * @param {object} beacon - The current beacon object.
- * @param {function} onUpdate - Callback to update the beacon's data.
- */
-const useSensorConfig = (beacon, onUpdate) => {
-    useEffect(() => {
-        if (!beacon?.mac || !onUpdate) return;
-
-        const fetchConfig = async () => {
-            try {
-                const url = new URL(N8N_CONFIG_URL);
-                url.searchParams.append('mac', beacon.mac);
-                const response = await fetch(url.toString());
-                if (response.ok) {
-                    const data = await response.json();
-                    if (Array.isArray(data) && data.length > 0 && data[0].display_name && data[0].display_name !== beacon.device_name) {
-                        onUpdate({ ...beacon, device_name: data[0].display_name });
-                    }
-                }
-            } catch (error) {
-                console.error("Erro ao buscar configuração do sensor:", error);
-            }
-        };
-
-        fetchConfig();
-    }, [beacon?.mac, beacon?.device_name, onUpdate]);
+    return { historyData, sensorInfo, loading, error };
 };
 
 // --- HELPER FUNCTIONS (could be moved to a utils file) ---
@@ -101,14 +81,14 @@ const useSensorConfig = (beacon, onUpdate) => {
 const processHistoryForChart = (historyData, period) => {
     if (!historyData || historyData.length === 0) return { labels: [], datasets: [] };
 
-    const sorted = [...historyData].sort((a, b) => new Date(a.created_at || a.ts) - new Date(b.created_at || b.ts));
+    const sorted = [...historyData].sort((a, b) => new Date(a.ts || a.created_at) - new Date(b.ts || b.created_at));
 
     const labels = [];
     const tempData = [];
     const humData = [];
 
     sorted.forEach(log => {
-        const dateStr = log.created_at || log.ts;
+        const dateStr = log.ts || log.created_at;
         if (!dateStr) return;
 
         const dateObj = new Date(dateStr);
@@ -117,8 +97,8 @@ const processHistoryForChart = (historyData, period) => {
             : dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         labels.push(label);
-        tempData.push(Number(log.temperature ?? log.temp ?? 0));
-        humData.push(Number(log.humidity ?? log.hum ?? 0));
+        tempData.push(Number(log.temp ?? log.temperature ?? 0));
+        humData.push(Number(log.hum ?? log.humidity ?? 0));
     });
 
     return {
@@ -152,11 +132,60 @@ const processHistoryForChart = (historyData, period) => {
 
 const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
     const [period, setPeriod] = useState('24h');
+    const [displayConfig, setDisplayConfig] = useState(false);
+    const [configValues, setConfigValues] = useState({
+        display_name: '',
+        max_temp: null,
+        max_hum: null,
+        batt_warning: null
+    });
     const toast = useRef(null);
 
     // --- DATA FETCHING ---
-    useSensorConfig(beacon, onUpdate);
-    const { historyData, loading, error: historyError } = useSensorHistory(beacon?.mac, period);
+    const { historyData, sensorInfo, loading, error: historyError } = useSensorData(beacon?.mac, period);
+
+    useEffect(() => {
+        const source = sensorInfo || beacon;
+        if (source) {
+            setConfigValues({
+                display_name: source.display_name || '',
+                max_temp: source.temp_max || source.max_temp || null,
+                max_hum: source.hum_max || source.max_hum || null,
+                batt_warning: source.batt_warning || null
+            });
+        }
+    }, [beacon, sensorInfo]);
+
+    const handleSaveConfig = async () => {
+        try {
+            const response = await fetch(SENSOR_CONFIG_URL, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': import.meta.env.VITE_API_KEY
+                },
+                body: JSON.stringify({
+                    mac: beacon.mac,
+                    display_name: configValues.display_name,
+                    batt_warning: configValues.batt_warning,
+                    temp_max: configValues.max_temp,
+                    hum_max: configValues.max_hum
+                })
+            });
+
+            if (!response.ok) throw new Error('Falha ao salvar configuração');
+
+            toast.current.show({ severity: 'success', summary: 'Sucesso', detail: 'Configuração salva!' });
+            
+            if (onUpdate) {
+                onUpdate({ ...beacon, ...configValues });
+            }
+            setDisplayConfig(false);
+        } catch (error) {
+            console.error(error);
+            toast.current.show({ severity: 'error', summary: 'Erro', detail: 'Erro ao salvar.' });
+        }
+    };
 
     // --- ERROR HANDLING ---
     useEffect(() => {
@@ -180,12 +209,13 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     </div>
                     <div>
                         <div className="flex align-items-center gap-2">
-                            <h1 className="text-2xl font-bold text-slate-800 m-0">{beacon.device_name || 'Sensor'}</h1>
+                            <h1 className="text-2xl font-bold text-slate-800 m-0">{sensorInfo?.display_name || beacon.display_name || beacon.device_name || 'Sensor'}</h1>
                         </div>
                         <span className="text-xs font-mono text-slate-500">{beacon.mac}</span>
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button icon="pi pi-cog" rounded text severity="secondary" aria-label="Configurações" onClick={() => setDisplayConfig(true)} />
                     {/* TODO: Implementar a funcionalidade de exportação de CSV */}
                     <Button label="Exportar CSV" icon="pi pi-download" size="small" disabled style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', padding: '0.4rem 0.6rem' }} />
                 </div>
@@ -201,10 +231,9 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                                 {beacon.temp}
                             </span>
                             <span className="text-lg text-slate-400">°C</span>
+                            {sensorInfo?.temp_max && <span className="text-sm text-slate-400 ml-1">/ {sensorInfo.temp_max}°C</span>}
                         </div>
-                        <div className="mt-3 text-xs text-slate-500">
-                            <span className="font-bold">Faixa Segura:</span> -20°C a {settings.tempAlert}°C
-                        </div>
+                        
                     </div>
                 </div>
                 <div className="col-12 md:col-4">
@@ -213,10 +242,9 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                         <div className="flex align-items-baseline gap-2">
                             <span className="text-4xl font-bold text-slate-800 text-value">{beacon.hum}</span>
                             <span className="text-lg text-slate-400">%</span>
+                            {sensorInfo?.hum_max && <span className="text-sm text-slate-400 ml-1">/ {sensorInfo.hum_max}%</span>}
                         </div>
-                        <div className="mt-3 text-xs text-slate-500">
-                            Ambiente controlado
-                        </div>
+                       
                     </div>
                 </div>
                 <div className="col-12 md:col-4">
@@ -227,6 +255,7 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                                 {beacon.batt}
                             </span>
                             <span className="text-lg text-slate-400">%</span>
+                            {sensorInfo?.batt_warning && <span className="text-sm text-slate-400 ml-1">/ {sensorInfo.batt_warning}%</span>}
                         </div>
                         <div className="mt-3 w-full bg-gray-100 h-1 rounded-full overflow-hidden">
                             <div className={`h-full ${beacon.batt < settings.lowBattery ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${beacon.batt}%` }}></div>
@@ -261,6 +290,31 @@ const SensorDetailView = ({ beacon, chartOptions, settings, onUpdate }) => {
                     )}
                 </div>
             </div>
+
+            <Dialog header="Configuração do Sensor" visible={displayConfig} style={{ width: '400px' }} onHide={() => setDisplayConfig(false)} modal className="p-fluid">
+                <div className="flex flex-column gap-4 pt-2">
+                    <div className="field">
+                        <label htmlFor="display_name" className="text-sm font-bold text-slate-700 block mb-2">Nome de Exibição</label>
+                        <InputText id="display_name" value={configValues.display_name} onChange={(e) => setConfigValues({...configValues, display_name: e.target.value})} placeholder="Ex: Geladeira 01" />
+                    </div>
+                    <div className="field">
+                        <label htmlFor="max_temp" className="text-sm font-bold text-slate-700 block mb-2">Temperatura Máxima (°C)</label>
+                        <InputNumber id="max_temp" value={configValues.max_temp} onValueChange={(e) => setConfigValues({...configValues, max_temp: e.value})} minFractionDigits={1} maxFractionDigits={2}   step={0.5} inputClassName="text-center" />
+                    </div>
+                    <div className="field">
+                        <label htmlFor="max_hum" className="text-sm font-bold text-slate-700 block mb-2">Umidade Máxima (%)</label>
+                        <InputNumber id="max_hum" value={configValues.max_hum} onValueChange={(e) => setConfigValues({...configValues, max_hum: e.value})} minFractionDigits={1} maxFractionDigits={2}   step={1} inputClassName="text-center" />
+                    </div>
+                    <div className="field">
+                        <label htmlFor="batt_warning" className="text-sm font-bold text-slate-700 block mb-2">Alerta de Bateria (%)</label>
+                        <InputNumber id="batt_warning" value={configValues.batt_warning} onValueChange={(e) => setConfigValues({...configValues, batt_warning: e.value})} min={0} max={100} step={5} inputClassName="text-center" />
+                    </div>
+                </div>
+                <div className="flex justify-content-end gap-2 mt-5">
+                    <Button label="Cancelar" text onClick={() => setDisplayConfig(false)} className="text-slate-500 text-sm" />
+                    <Button label="Salvar" onClick={handleSaveConfig} className="btn-primary text-sm px-4" />
+                </div>
+            </Dialog>
         </div>
     );
 };

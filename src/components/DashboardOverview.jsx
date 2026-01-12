@@ -1,23 +1,25 @@
 import React from 'react';
 
-const OFFLINE_THRESHOLD_MS = 100000;
+const OFFLINE_THRESHOLD_MS = 3600000; // 1 hora
 
 const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
+    const unassignedBeacons = beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase())));
+
     return (
         <div className="h-full">
             {/* SECTORS GRID */}
             <div className="grid">
                 {/* Unassigned Beacons */}
-                {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).length > 0 && (
-                    <div className="col-12 md:col-6 xl:col-4">
+                {unassignedBeacons.length > 0 && (
+                    <div className="col-12">
                         <div className="flex align-items-center gap-2 mb-3 px-1">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Não Atribuídos</h3>
                             <div className="h-1px bg-gray-200 flex-grow-1"></div>
                         </div>
-                        <div className="flex flex-column gap-3">
-                            {beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase()))).map(beacon => (
-                                <div key={beacon.mac}>
-                                    <div className="sensor-grid-card opacity-80" onClick={() => onSelect(beacon)}>
+                        <div className="grid">
+                            {unassignedBeacons.map(beacon => (
+                                <div key={beacon.mac} className="col-12 md:col-6 xl:col-3">
+                                    <div className="sensor-grid-card opacity-80 h-full" onClick={() => onSelect(beacon)}>
                                         <div className="flex justify-content-between align-items-start mb-3">
                                             <div>
                                                 <span className="text-sm font-bold text-slate-700">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
@@ -41,38 +43,30 @@ const DashboardOverview = ({ beacons, sectors, onSelect, settings }) => {
                     if (sectorBeacons.length === 0) return null;
 
                     return (
-                        <div key={sector.id} className="col-12 md:col-6 xl:col-4">
+                        <div key={sector.id} className="col-12">
                             <div className="flex align-items-center gap-2 mb-3 px-1">
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest">{sector.name}</h3>
                                 <div className="h-1px bg-gray-200 flex-grow-1"></div>
                             </div>
-                            <div className="flex flex-column gap-3">
+                            <div className="grid">
                                 {sectorBeacons.map(beacon => {
-                                    const isCritical = beacon.temp > settings.tempCritical;
-                                    const isAlert = beacon.temp > settings.tempAlert && !isCritical;
                                     const isOffline = (Date.now() - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
 
                                     return (
-                                        <div key={beacon.mac}>
-                                            <div className={`sensor-grid-card ${isCritical ? 'border-rose-200 bg-rose-50/30' : ''} ${isOffline ? 'opacity-60 grayscale' : ''}`} onClick={() => onSelect(beacon)}>
+                                        <div key={beacon.mac} className="col-12 md:col-6 xl:col-3">
+                                            <div className={`sensor-grid-card h-full ${isOffline ? 'opacity-60 grayscale' : ''}`} onClick={() => onSelect(beacon)}>
                                                 <div className="flex justify-content-between align-items-start mb-3">
                                                     <div>
                                                         <span className="text-sm font-bold text-slate-800 block mb-1">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
                                                         <span className="text-[10px] font-mono text-slate-400">{beacon.mac.slice(-5)}</span>
                                                     </div>
-                                                    {isOffline ? <span className="status-badge neutral">Offline</span> : (
-                                                        <>
-                                                            {isCritical && <span className="status-badge danger">Crítico</span>}
-                                                            {isAlert && <span className="status-badge warning">Alerta</span>}
-                                                            {!isCritical && !isAlert && <span className="status-badge success">Normal</span>}
-                                                        </>
-                                                    )}
+                                                    {isOffline ? <span className="status-badge neutral">Offline</span> : <span className="status-badge success">Online</span>}
                                                 </div>
 
                                                 <div className="flex align-items-end justify-content-between">
                                                     <div>
                                                         <span className="text-label block mb-1">Temperatura</span>
-                                                        <span className={`text-2xl font-bold text-value ${isCritical ? 'text-rose-600' : isAlert ? 'text-orange-600' : 'text-slate-700'}`}>
+                                                        <span className="text-2xl font-bold text-value text-slate-700">
                                                             {beacon.temp}°C
                                                         </span>
                                                     </div>

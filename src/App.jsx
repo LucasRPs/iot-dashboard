@@ -19,8 +19,8 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // --- CONFIGURAÇÕES ---
-const N8N_API_URL = 'https://n8n.alcateia-ia.com/webhook/sensors';
-const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
+const N8N_API_URL = 'http://localhost:3000/api/sensores/latest';
+const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000; // 1 Hora para considerar Offline
 
 // --- APP PRINCIPAL ---
 function App() {
@@ -62,7 +62,11 @@ function App() {
     // Fetch de dados da API N8N
     const fetchData = useCallback(async () => {
         try {
-            const response = await fetch(N8N_API_URL);
+            const response = await fetch(N8N_API_URL, {
+                headers: {
+                    'x-api-key': import.meta.env.VITE_API_KEY
+                }
+            });
             if (!response.ok) throw new Error('Erro na resposta da API');
             
             const data = await response.json();
@@ -74,9 +78,9 @@ function App() {
                     const hum = parseFloat(s.current_hum ?? s.hum ?? 0);
                     const batt = Number(s.battery_level ?? s.batt ?? 0);
                     const rssi = Number(s.rssi ?? 0);
-                    const ts = s.last_seen || s.ts || new Date().toISOString();
-                    const lastSeenDate = new Date(ts);
-                    const timeLabel = lastSeenDate.toLocaleTimeString('pt-BR');
+                    const ts = s.ts || s.last_seen || new Date().toISOString();
+                    const lastSeenDate = new Date(s.created_at || s.last_seen || ts);
+                    const timeLabel = new Date(ts).toLocaleTimeString('pt-BR');
 
                     // Histórico para Gráficos
                     if (!historyRef.current[s.mac]) { 
