@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 
 // --- CSS Imports ---
-import "primereact/resources/themes/saga-blue/theme.css";
+import "primereact/resources/themes/bootstrap4-light-blue/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
@@ -11,7 +11,6 @@ import "./styles/global.css";
 // --- Components ---
 import DashboardOverview from './components/DashboardOverview';
 import SectorsConfigView from './components/SectorsConfigView';
-import ReportsView from './components/ReportsView';
 import SensorDetailView from './components/SensorDetailView';
 import GatewaysView from './components/GatewaysView';
 import LoginView from './components/LoginView';
@@ -33,20 +32,9 @@ function App() {
     });
     const [connectionStatus, setConnectionStatus] = useState('Conectando...');
     const historyRef = useRef({});
+    const navigate = useNavigate();
 
-    // Opções do gráfico (compartilhadas)
-    const chartOptions = {
-        maintainAspectRatio: false,
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
-            y: { type: 'linear', display: true, position: 'left', ticks: { color: '#f97316' }, grid: { color: '#f1f5f9', borderDash: [5, 5] } },
-            y1: { type: 'linear', display: true, position: 'right', ticks: { color: '#0ea5e9' }, grid: { display: false } },
-        },
-        elements: { point: { radius: 0, hoverRadius: 4 } },
-        animation: false
-    };
+
 
     const handleUpdateSensor = (updatedBeacon) => {
         setBeacons(prev => prev.map(b => b.mac === updatedBeacon.mac ? updatedBeacon : b));
@@ -67,6 +55,13 @@ function App() {
                     'x-api-key': import.meta.env.VITE_API_KEY
                 }
             });
+
+            if (response.status === 401) {
+                localStorage.removeItem('alcateia_auth');
+                navigate('/login');
+                return;
+            }
+
             if (!response.ok) throw new Error('Erro na resposta da API');
             
             const data = await response.json();
@@ -173,7 +168,6 @@ function App() {
             <SensorDetailView 
                 beacon={beacon} 
                 history={historyRef.current[beacon.mac]} 
-                chartOptions={chartOptions} 
                 settings={settings} 
                 onUpdate={handleUpdateSensor} 
             />
@@ -227,6 +221,12 @@ function App() {
     };
 
     return (
+        <>
+        <style>{`
+            body {
+                background-color: var(--surface-200) !important;
+            }
+        `}</style>
         <Routes>
             {/* Rota de Login (pública) */}
             <Route path="/login" element={<LoginPage />} />
@@ -244,7 +244,6 @@ function App() {
                             setSettings={setSettings}
                             connectionStatus={connectionStatus}
                             historyRef={historyRef}
-                            chartOptions={chartOptions}
                             onUpdateSensor={handleUpdateSensor}
                         />
                     </ProtectedRoute>
@@ -252,13 +251,13 @@ function App() {
             >
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="" element={<Navigate to="/dashboard" replace />} />
-                <Route path="reports" element={<ReportsView />} />
                 <Route path="gateways" element={<GatewaysPage />} />
                 <Route path="config" element={<SectorsConfigPage />} />
                 <Route path="sensor/:mac" element={<SensorDetailPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
         </Routes>
+        </>
     );
 }
 

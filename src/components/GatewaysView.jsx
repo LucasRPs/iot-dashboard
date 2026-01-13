@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tag } from 'primereact/tag';
-import { ProgressSpinner } from 'primereact/progressspinner';
+import { Skeleton } from 'primereact/skeleton';
 
 const SENSORS_API_URL = `${import.meta.env.VITE_API_BASE_URL}/dispositivos`;
 
 const GatewaysView = ({ onSelectBeacon }) => {
     const [beacons, setBeacons] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     const fetchGatewayData = useCallback(async () => {
         setLoading(true);
@@ -16,6 +18,13 @@ const GatewaysView = ({ onSelectBeacon }) => {
                     'x-api-key': import.meta.env.VITE_API_KEY
                 }
             });
+
+            if (response.status === 401) {
+                localStorage.removeItem('alcateia_auth');
+                navigate('/login');
+                return;
+            }
+
             if (!response.ok) throw new Error('Falha ao buscar dados dos sensores.');
             
             const data = await response.json();
@@ -80,19 +89,31 @@ const GatewaysView = ({ onSelectBeacon }) => {
             <div className="tech-card p-4 h-full flex flex-column">
                 <div className="flex justify-content-between align-items-center mb-4">
                     <div>
-                        <h2 className="m-0 text-slate-800 text-lg font-bold">Gateways</h2>
-                        <p className="text-gray-500 text-xs mt-0">Visualize os gateways e seus dispositivos vinculados.</p>
+                        <h2 className="m-0 text-900 text-lg font-bold">Gateways</h2>
+                        <p className="text-500 text-xs mt-0">Visualize os gateways e seus dispositivos vinculados.</p>
                     </div>
                 </div>
 
                 {/* Grid of Gateway Cards */}
                 <div className="grid flex-grow-1 overflow-y-auto custom-scrollbar">
                     {loading ? (
-                        <div className="col-12 flex align-items-center justify-content-center h-20rem">
-                            <ProgressSpinner style={{width: '50px', height: '50px'}} strokeWidth="4" />
-                        </div>
+                        Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="col-12 md:col-6 lg:col-3">
+                                <div className="widget-card p-3 flex flex-column gap-2">
+                                    <div className="flex justify-content-between align-items-start gap-2">
+                                        <Skeleton width="50%" height="1.2rem" />
+                                        <Skeleton width="2rem" height="1.2rem" />
+                                    </div>
+                                    <div className="flex flex-column gap-2 mt-2">
+                                        <Skeleton width="100%" height="2.5rem" />
+                                        <Skeleton width="100%" height="2.5rem" />
+                                    </div>
+                                    <Skeleton width="30%" height="0.8rem" className="mt-1" />
+                                </div>
+                            </div>
+                        ))
                     ) : gatewayData.length === 0 ? (
-                        <div className="col-12 flex align-items-center justify-content-center h-20rem text-slate-400">
+                        <div className="col-12 flex align-items-center justify-content-center h-20rem text-400">
                             <div className="text-center">
                                 <i className="pi pi-server text-4xl mb-2"></i>
                                 <p className="text-sm font-medium">Nenhum gateway detectado</p>
@@ -105,7 +126,7 @@ const GatewaysView = ({ onSelectBeacon }) => {
                                     {/* Gateway Header */}
                                     <div className="flex justify-content-between align-items-start gap-2">
                                         <div className="flex-grow-1">
-                                            <h4 className="m-0 text-slate-800 font-bold text-xs">{gw.gateway}</h4>
+                                            <h4 className="m-0 text-900 font-bold text-xs">{gw.gateway}</h4>
                                         </div>
                                         <Tag value={gw.deviceCount} className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5" />
                                     </div>
@@ -115,13 +136,13 @@ const GatewaysView = ({ onSelectBeacon }) => {
                                         {gw.beacons.map((beacon) => (
                                             <div
                                                 key={beacon.mac}
-                                                className="flex align-items-center justify-content-between p-2 bg-slate-50/80 border-round-md hover:bg-slate-100 transition-colors"
+                                                className="flex align-items-center justify-content-between p-2 surface-ground border-round-md hover:surface-hover transition-colors"
                                             >
                                                 <div 
-                                                    className="text-slate-700 font-medium text-sm cursor-pointer hover:text-indigo-600 flex align-items-center flex-grow-1"
+                                                    className="text-800 font-medium text-sm cursor-pointer hover:text-indigo-600 flex align-items-center flex-grow-1"
                                                     onClick={() => onSelectBeacon(beacon)}
                                                 >
-                                                    <i className="pi pi-box text-xs mr-2 text-slate-400"></i>
+                                                    <i className="pi pi-box text-xs mr-2 text-500"></i>
                                                     {beacon.display_name || beacon.device_name || beacon.mac.slice(-5)}
                                                 </div>
                                             </div>
@@ -129,7 +150,7 @@ const GatewaysView = ({ onSelectBeacon }) => {
                                     </div>
 
                                     {/* Footer - Last Seen */}
-                                    <span className="text-[9px] text-slate-400 font-mono mt-1">{gw.lastSeen}</span>
+                                    <span className="text-[9px] text-500 font-mono mt-1">{gw.lastSeen}</span>
                                 </div>
                             </div>
                         ))
