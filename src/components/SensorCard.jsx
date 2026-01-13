@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect, memo } from 'react';
 
 const OFFLINE_THRESHOLD_MS = 3600000; // 1 hora
 
-const SensorCard = ({ beacon, onClick }) => {
-    const isOffline = (Date.now() - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
+const SensorCard = memo(({ beacon, onClick }) => {
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const isOffline = (now - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
     const isNew = !beacon.sector;
 
     const getStatusBadge = () => {
@@ -23,7 +30,7 @@ const SensorCard = ({ beacon, onClick }) => {
             </div>
             <div className="card-body">
                 <div className="temperature">
-                    <span style={{fontSize:"24px", paddingRight:"5px"}}>Temp</span>
+                    <span style={{fontSize:"16px", paddingRight:"5px", color: 'var(--text-color-secondary)'}}>Temp</span>
                     {beacon.temp}°C
                 </div>
             </div>
@@ -42,6 +49,6 @@ const SensorCard = ({ beacon, onClick }) => {
             </div>
         </div>
     );
-};
+});
 
 export default SensorCard;

@@ -1,7 +1,36 @@
 import React from 'react';
+import { Skeleton } from 'primereact/skeleton';
 import SensorCard from './SensorCard';
 
-const DashboardOverview = ({ beacons, sectors, onSelect }) => {
+const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
+    if (loading) {
+        return (
+            <div className="dashboard-overview">
+                <div className="sector-group">
+                    <h2 className="sector-title"><Skeleton width="12rem" height="1.5rem" className="mb-2" /></h2>
+                    <div className="sensor-grid">
+                        {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="sensor-card p-3 flex flex-column justify-content-between" style={{ height: '140px' }}>
+                                <div className="flex justify-content-between align-items-start">
+                                    <Skeleton width="50%" height="1.2rem" />
+                                    <Skeleton width="20%" height="1rem" borderRadius="12px" />
+                                </div>
+                                <div className="flex align-items-baseline gap-2 my-2">
+                                    <Skeleton width="20%" height="1rem" />
+                                    <Skeleton width="40%" height="2rem" />
+                                </div>
+                                <div className="flex justify-content-between mt-auto">
+                                    <Skeleton width="30%" height="0.8rem" />
+                                    <Skeleton width="30%" height="0.8rem" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const unassignedBeacons = beacons.filter(b => !sectors.some(s => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase())));
 
     return (

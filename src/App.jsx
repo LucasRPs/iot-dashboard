@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 
+import { locale, addLocale} from 'primereact/api';
+        
+
 // --- CSS Imports ---
 import "primereact/resources/themes/bootstrap4-light-blue/theme.css";
 import "primereact/resources/primereact.min.css";
@@ -17,19 +20,23 @@ import LoginView from './components/LoginView';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
+addLocale('pt', (await import('../pt.ts')).pt);
+locale('pt');
+
 // --- CONFIGURAÇÕES ---
 const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
 const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000; // 1 Hora para considerar Offline
 
 // --- COMPONENTES WRAPPERS (Definidos fora do App para evitar re-mounts) ---
 
-const DashboardPage = ({ beacons, sectors, settings }) => {
+const DashboardPage = ({ beacons, sectors, settings, loading }) => {
     const navigate = useNavigate();
     return (
         <DashboardOverview 
             beacons={beacons} 
             sectors={sectors} 
             settings={settings} 
+            loading={loading}
             onSelect={(b) => navigate(`/sensor/${b.mac}`)} 
         />
     );
@@ -111,6 +118,7 @@ function App() {
         tempCritical: 25,
         lowBattery: 20
     });
+    const [loading, setLoading] = useState(true);
     const [connectionStatus, setConnectionStatus] = useState('Conectando...');
     const historyRef = useRef({});
     const navigate = useNavigate();
@@ -206,6 +214,8 @@ function App() {
         } catch (error) {
             console.error("Erro no fetch:", error);
             setConnectionStatus('Offline / Erro API');
+        } finally {
+            setLoading(false);
         }
     }, [getStatus, historyRef]);
 
@@ -245,7 +255,7 @@ function App() {
                     </ProtectedRoute>
                 }
             >
-                <Route path="dashboard" element={<DashboardPage beacons={beacons} sectors={sectors} settings={settings} />} />
+                <Route path="dashboard" element={<DashboardPage beacons={beacons} sectors={sectors} settings={settings} loading={loading} />} />
                 <Route path="" element={<Navigate to="/dashboard" replace />} />
                 <Route path="gateways" element={<GatewaysPage />} />
                 <Route path="config" element={<SectorsConfigPage sectors={sectors} setSectors={setSectors} beacons={beacons} />} />
