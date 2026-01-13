@@ -19,8 +19,11 @@ const LoginView = ({ onLogin }) => {
         // Simulação de Autenticação (Mock)
         // Para produção, substitua por uma chamada fetch para sua API
         setTimeout(() => {
-            // Credenciais de teste: jd@grupoalcate-ia.com / 123456
-            if (email === 'jd@grupoalcate-ia.com' && password === '123456') {
+            // Credenciais via variáveis de ambiente ou fallback
+            const validEmail = import.meta.env.VITE_ADMIN_EMAIL ;
+            const validPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+
+            if (email === validEmail && password === validPassword) {
                 const mockUser = { id: 1, email: email, name: 'Administrador' };
                 const mockSession = { access_token: 'mock-token-123' };
                 onLogin(mockUser, mockSession);

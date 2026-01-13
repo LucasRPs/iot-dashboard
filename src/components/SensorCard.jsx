@@ -1,6 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 
-const OFFLINE_THRESHOLD_MS = 3600000; // 1 hora
+const OFFLINE_THRESHOLD_MS = 60000; // 1 minuto
 
 const SensorCard = memo(({ beacon, onClick }) => {
     const [now, setNow] = useState(Date.now());
@@ -11,10 +11,8 @@ const SensorCard = memo(({ beacon, onClick }) => {
     }, []);
 
     const isOffline = (now - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
-    const isNew = !beacon.sector;
 
     const getStatusBadge = () => {
-        if (isNew) return <div className="status-badge new">Novo</div>;
         if (isOffline) return <div className="status-badge offline">Offline</div>;
         return <div className="status-badge online">Online</div>;
     };

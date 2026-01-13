@@ -25,7 +25,7 @@ locale('pt');
 
 // --- CONFIGURAÇÕES ---
 const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
-const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000; // 1 Hora para considerar Offline
+const OFFLINE_THRESHOLD_MS = 60 * 1000; // 1 Minuto para considerar Offline
 
 // --- COMPONENTES WRAPPERS (Definidos fora do App para evitar re-mounts) ---
 

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
 
-const OFFLINE_THRESHOLD_MS = 10 * 60 * 1000; // 10 Minutos para considerar Offline
+const OFFLINE_THRESHOLD_MS = 60 * 1000; // 1 Minuto para considerar Offline
 
 const Sidebar = ({ beacons, settings }) => {
     const location = useLocation();

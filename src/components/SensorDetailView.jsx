@@ -49,10 +49,8 @@ const useSensorData = (mac, period) => {
     const [error, setError] = useState(null);
     const navigate = useNavigate();
 
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         if (!mac) return;
-
-        const fetchData = async () => {
             setLoading(true);
             setError(null);
             try {
@@ -83,12 +81,13 @@ const useSensorData = (mac, period) => {
             } finally {
                 setLoading(false);
             }
-        };
+    }, [mac, period, navigate]);
 
+    useEffect(() => {
         fetchData();
-    }, [mac, period]);
+    }, [fetchData]);
 
-    return { historyData, sensorInfo, loading, error };
+    return { historyData, sensorInfo, loading, error, refetch: fetchData };
 };
 
 // --- HELPER FUNCTIONS ---
@@ -264,7 +263,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     const navigate = useNavigate();
 
     // --- DATA FETCHING ---
-    const { historyData, sensorInfo, loading, error: historyError } = useSensorData(beacon?.mac, period);
+    const { historyData, sensorInfo, loading, error: historyError, refetch } = useSensorData(beacon?.mac, period);
     const chartOptions = useMemo(() => getChartOptions(), []);
 
     // --- ROUTE PROCESSING ---
@@ -388,6 +387,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button rounded text severity="secondary" icon="pi pi-refresh" onClick={refetch} tooltip="Atualizar" />
                     <Button rounded text severity="secondary" icon="pi pi-file-export" label="Relatório" onClick={() => setShowReportDialog(true)} />
                     <Button rounded text severity="secondary" icon="pi pi-cog" label="Configurar" onClick={handleOpenConfig} />
                 </div>
