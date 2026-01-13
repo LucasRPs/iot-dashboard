@@ -9,7 +9,7 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { Calendar } from 'primereact/calendar';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -86,8 +86,6 @@ const useSensorData = (mac, period) => {
 
                 // MOCK: Coordenadas aleatórias para teste (São Paulo)
                 const info = data.info || {};
-                if (info.lat == null) info.lat = -23.5505 + (Math.random() - 0.5) * 0.02;
-                if (info.lng == null) info.lng = -46.6333 + (Math.random() - 0.5) * 0.02;
                 setSensorInfo(info);
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
@@ -259,8 +257,13 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
     );
 });
 
-const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading }) => {
-    if (!loading && (!sensorInfo?.lat || !sensorInfo?.lng)) return null;
+const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, routeData }) => {
+    // Localização fixa (São Paulo) para exibição
+    const defaultLat = -23.5505;
+    const defaultLng = -46.6333;
+    
+    const lat = sensorInfo?.lat ?? defaultLat;
+    const lng = sensorInfo?.lng ?? defaultLng;
 
     return (
         <div className="col-12 xl:col-6 flex flex-column h-full">
@@ -271,14 +274,17 @@ const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading }) 
                 {loading ? (
                     <Skeleton width="100%" height="100%" borderRadius="0" />
                 ) : (
-                    <MapContainer center={[sensorInfo.lat, sensorInfo.lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                    <MapContainer center={[lat, lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-                        <Marker position={[sensorInfo.lat, sensorInfo.lng]} icon={truckIcon}>
+                        {routeData && routeData.length > 1 && (
+                            <Polyline positions={routeData} color="#000000" weight={4} opacity={1} />
+                        )}
+                        <Marker position={[lat, lng]} icon={truckIcon}>
                             <Popup>
                                 <div className="flex flex-column gap-1">
-                                    <span className="font-bold">{sensorInfo.display_name || 'Sensor'}</span>
+                                    <span className="font-bold">{sensorInfo?.display_name || 'Sensor'}</span>
                                     <span className="text-xs text-500" style={{ maxWidth: '200px', display: 'block' }}>
-                                        {addressLoading ? 'Resolvendo endereço...' : (address || 'Endereço indisponível')}
+                                        {addressLoading ? 'Resolvendo endereço...' : (address || 'Localização Fixa')}
                                     </span>
                                 </div>
                             </Popup>
@@ -311,6 +317,29 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     // --- DATA FETCHING ---
     const { historyData, sensorInfo, loading, error: historyError } = useSensorData(beacon?.mac, period);
     const chartOptions = useMemo(() => getChartOptions(), []);
+
+    // Processa dados para a rota no mapa
+    const routeData = useMemo(() => {
+        // MOCK: Dados de rota para teste (Simulando um trajeto em SP)
+        const mockRoute = [
+            [-23.550520, -46.633308], // Praça da Sé
+            [-23.551200, -46.634100],
+            [-23.552000, -46.635000],
+            [-23.553500, -46.636500],
+            [-23.555000, -46.638000],
+            [-23.556500, -46.639500],
+            [-23.558000, -46.641000], // Liberdade
+        ];
+
+        if (!historyData || historyData.length === 0) return mockRoute;
+        
+        const realRoute = historyData
+            .filter(d => (d.lat || d.latitude) && (d.lng || d.longitude || d.lon))
+            .sort((a, b) => new Date(a.ts || a.created_at) - new Date(b.ts || b.created_at))
+            .map(d => [Number(d.lat || d.latitude), Number(d.lng || d.longitude || d.lon)]);
+
+        return realRoute.length > 0 ? realRoute : mockRoute;
+    }, [historyData]);
 
     const handleOpenConfig = () => {
         const source = sensorInfo || beacon;
@@ -617,7 +646,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
             {/* Bottom Section: Chart + Map */}
             <div className="grid flex-grow-1 min-h-0">
                 {/* Chart Column */}
-                <div className={`col-12 ${loading || (sensorInfo?.lat && sensorInfo?.lng) ? 'xl:col-6' : ''} flex flex-column h-full`}>
+                <div className="col-12 xl:col-6 flex flex-column h-full">
                     <TemperatureChart 
                         historyData={historyData}
                         period={period}
@@ -628,15 +657,14 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                     />
                 </div>
 
-                {/* Map Column (Only renders if lat/lng exists) */}
-                {(loading || (sensorInfo?.lat && sensorInfo?.lng)) && (
-                    <SensorMap 
-                        sensorInfo={sensorInfo}
-                        address={address}
-                        loading={loading}
-                        addressLoading={addressLoading}
-                    />
-                )}
+                {/* Map Column */}
+                <SensorMap 
+                    sensorInfo={sensorInfo}
+                    address={address}
+                    loading={loading}
+                    addressLoading={addressLoading}
+                    routeData={routeData}
+                />
             </div>
 
             {/* Modal de Configuração */}

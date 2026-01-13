@@ -21,6 +21,87 @@ import ProtectedRoute from './components/ProtectedRoute';
 const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
 const OFFLINE_THRESHOLD_MS = 60 * 60 * 1000; // 1 Hora para considerar Offline
 
+// --- COMPONENTES WRAPPERS (Definidos fora do App para evitar re-mounts) ---
+
+const DashboardPage = ({ beacons, sectors, settings }) => {
+    const navigate = useNavigate();
+    return (
+        <DashboardOverview 
+            beacons={beacons} 
+            sectors={sectors} 
+            settings={settings} 
+            onSelect={(b) => navigate(`/sensor/${b.mac}`)} 
+        />
+    );
+};
+
+const SensorDetailPage = ({ beacons, historyRef, settings, onUpdate }) => {
+    const { mac } = useParams();
+    const beacon = beacons.find(b => b.mac === mac);
+    
+    if (!beacon) {
+        return (
+            <div className="flex flex-column align-items-center justify-content-center h-full text-400">
+                <div className="w-6rem h-6rem surface-100 border-circle flex align-items-center justify-content-center mb-4">
+                    <i className="pi pi-search text-3xl text-300"></i>
+                </div>
+                <p className="text-sm font-medium">Sensor não encontrado</p>
+            </div>
+        );
+    }
+
+    return (
+        <SensorDetailView 
+            beacon={beacon} 
+            history={historyRef.current[beacon.mac]} 
+            settings={settings} 
+            onUpdate={onUpdate} 
+        />
+    );
+};
+
+const GatewaysPage = () => {
+    const navigate = useNavigate();
+    return (
+        <GatewaysView 
+            onSelectBeacon={(b) => navigate(`/sensor/${b.mac}`)} 
+        />
+    );
+};
+
+const SectorsConfigPage = ({ sectors, setSectors, beacons }) => {
+    const handleSaveSectors = (newSectors) => {
+        setSectors(newSectors);
+        localStorage.setItem('alcateia_sectors', JSON.stringify(newSectors));
+    };
+    return (
+        <SectorsConfigView 
+            sectors={sectors} 
+            onSave={handleSaveSectors} 
+            detectedBeacons={beacons} 
+        />
+    );
+};
+
+const LoginPageWrapper = () => {
+    const navigate = useNavigate();
+    
+    useEffect(() => {
+        const isAuthenticated = localStorage.getItem('alcateia_auth') === 'true';
+        if (isAuthenticated) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [navigate]);
+    
+    const handleLogin = (username, password) => {
+        if (username && password) {
+            localStorage.setItem('alcateia_auth', 'true');
+            navigate('/dashboard', { replace: true });
+        }
+    };
+    return <LoginView onLogin={handleLogin} />;
+};
+
 // --- APP PRINCIPAL ---
 function App() {
     const [beacons, setBeacons] = useState([]);
@@ -135,91 +216,6 @@ function App() {
         return () => clearInterval(interval);
     }, [fetchData]);
 
-    // Componente wrapper para DashboardOverview
-    const DashboardPage = () => {
-        const navigate = useNavigate();
-        return (
-            <DashboardOverview 
-                beacons={beacons} 
-                sectors={sectors} 
-                settings={settings} 
-                onSelect={(b) => navigate(`/sensor/${b.mac}`)} 
-            />
-        );
-    };
-
-    // Componente wrapper para SensorDetailView (usa parâmetro da URL)
-    const SensorDetailPage = () => {
-        const { mac } = useParams();
-        const beacon = beacons.find(b => b.mac === mac);
-        
-        if (!beacon) {
-            return (
-                <div className="flex flex-column align-items-center justify-content-center h-full text-slate-400">
-                    <div className="w-6rem h-6rem bg-slate-100 border-circle flex align-items-center justify-content-center mb-4">
-                        <i className="pi pi-search text-3xl text-slate-300"></i>
-                    </div>
-                    <p className="text-sm font-medium">Sensor não encontrado</p>
-                </div>
-            );
-        }
-
-        return (
-            <SensorDetailView 
-                beacon={beacon} 
-                history={historyRef.current[beacon.mac]} 
-                settings={settings} 
-                onUpdate={handleUpdateSensor} 
-            />
-        );
-    };
-
-    // Componente wrapper para GatewaysView
-    const GatewaysPage = () => {
-        const navigate = useNavigate();
-        return (
-            <GatewaysView 
-                onSelectBeacon={(b) => navigate(`/sensor/${b.mac}`)} 
-            />
-        );
-    };
-
-    // Componente wrapper para SectorsConfigView
-    const SectorsConfigPage = () => {
-        const handleSaveSectors = (newSectors) => {
-            setSectors(newSectors);
-            localStorage.setItem('alcateia_sectors', JSON.stringify(newSectors));
-        };
-        return (
-            <SectorsConfigView 
-                sectors={sectors} 
-                onSave={handleSaveSectors} 
-                detectedBeacons={beacons} 
-            />
-        );
-    };
-
-    // Componente wrapper para LoginView
-    const LoginPage = () => {
-        const navigate = useNavigate();
-        
-        // Redireciona se já estiver autenticado
-        useEffect(() => {
-            const isAuthenticated = localStorage.getItem('alcateia_auth') === 'true';
-            if (isAuthenticated) {
-                navigate('/dashboard', { replace: true });
-            }
-        }, [navigate]);
-        
-        const handleLogin = (username, password) => {
-            if (username && password) {
-                localStorage.setItem('alcateia_auth', 'true');
-                navigate('/dashboard', { replace: true });
-            }
-        };
-        return <LoginView onLogin={handleLogin} />;
-    };
-
     return (
         <>
         <style>{`
@@ -229,7 +225,7 @@ function App() {
         `}</style>
         <Routes>
             {/* Rota de Login (pública) */}
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPageWrapper />} />
             
             {/* Rotas protegidas */}
             <Route
@@ -249,11 +245,11 @@ function App() {
                     </ProtectedRoute>
                 }
             >
-                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="dashboard" element={<DashboardPage beacons={beacons} sectors={sectors} settings={settings} />} />
                 <Route path="" element={<Navigate to="/dashboard" replace />} />
                 <Route path="gateways" element={<GatewaysPage />} />
-                <Route path="config" element={<SectorsConfigPage />} />
-                <Route path="sensor/:mac" element={<SensorDetailPage />} />
+                <Route path="config" element={<SectorsConfigPage sectors={sectors} setSectors={setSectors} beacons={beacons} />} />
+                <Route path="sensor/:mac" element={<SensorDetailPage beacons={beacons} historyRef={historyRef} settings={settings} onUpdate={handleUpdateSensor} />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
         </Routes>
