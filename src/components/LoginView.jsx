@@ -4,6 +4,8 @@ import { Password } from 'primereact/password';
 import { Button } from 'primereact/button';
 import { Avatar } from 'primereact/avatar';
 import { Message } from 'primereact/message';
+// 1. Importe o cliente que criamos acima
+import { supabase } from '../supabaseClient'; // Ajuste o caminho conforme necessário
 
 const LoginView = ({ onLogin }) => {
     const [email, setEmail] = useState('');
@@ -16,22 +18,36 @@ const LoginView = ({ onLogin }) => {
         setLoading(true);
         setError(null);
 
-        // Simulação de Autenticação (Mock)
-        // Para produção, substitua por uma chamada fetch para sua API
-        setTimeout(() => {
-            // Credenciais via variáveis de ambiente ou fallback
-            const validEmail = import.meta.env.VITE_ADMIN_EMAIL ;
-            const validPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+        try {
+            // 2. AQUI é onde colocamos o login e a senha
+            // O Supabase espera um objeto com as chaves 'email' e 'password'
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,       // Variável do seu useState
+                password: password  // Variável do seu useState
+            });
 
-            if (email === validEmail && password === validPassword) {
-                const mockUser = { id: 1, email: email, name: 'Administrador' };
-                const mockSession = { access_token: 'mock-token-123' };
-                onLogin(mockUser, mockSession);
-            } else {
-                setError('Email ou senha incorretos.');
-                setLoading(false);
+            if (error) {
+                // Se o Supabase retornar erro (ex: senha errada), mostramos a mensagem
+                throw error;
             }
-        }, 1000);
+
+            // 3. Sucesso! O Supabase retorna o usuário e a sessão
+            if (data.user && data.session) {
+                onLogin(data.user, data.session);
+            }
+
+        } catch (err) {
+            // Tratamento de mensagens de erro amigáveis
+            let msg = 'Erro ao realizar login.';
+            if (err.message.includes('Invalid login credentials')) {
+                msg = 'Email ou senha incorretos.';
+            } else {
+                msg = err.message;
+            }
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -45,6 +61,7 @@ const LoginView = ({ onLogin }) => {
                     <span className="text-600 font-medium text-lg">Bem-vindo de volta</span>
                 </div>
 
+                {/* Exibição de Erro */}
                 {error && <Message severity="error" text={error} className="w-full mb-4 block" />}
 
                 <form onSubmit={handleSubmit} className="p-fluid">

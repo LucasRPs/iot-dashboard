@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { supabase } from '../supabaseClient';
 
 const Layout = ({ beacons, sectors, setSectors, settings, setSettings }) => {
     const navigate = useNavigate();
@@ -20,8 +21,8 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings }) => {
         }
     }, [setSectors, setSettings]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('alcateia_auth');
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         navigate('/login');
     };
 

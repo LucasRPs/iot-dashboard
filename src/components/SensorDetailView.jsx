@@ -11,6 +11,7 @@ import { Calendar } from 'primereact/calendar';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import * as XLSX from 'xlsx';
 
 // --- LEAFLET ICON FIX ---
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -35,6 +36,7 @@ const truckIcon = L.divIcon({
 const N8N_HISTORY_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores`;
 const SENSOR_CONFIG_URL = `${import.meta.env.VITE_API_BASE_URL}/dispositivos`;
 const REPORT_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensor/report`;
+const COORDINATES_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensor/coordinates`;
 const periodOptions = [
     { label: '1H', value: '1h' },
     { label: '24H', value: '24h' },
@@ -180,7 +182,7 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
                             />
                         ))}
                     </div>
-                    <Button rounded text severity="info" disabled={!historyData || historyData.length === 0} onClick={onExport} tooltip="Exportar Excel">Exportar Excel</Button>
+                    <Button rounded text severity="info" disabled={!historyData || historyData.length === 0} onClick={onExport}>Exportar Excel</Button>
                 </div>
             </div>
             <div className="flex-grow-1 relative">
@@ -199,8 +201,12 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
     );
 });
 
-const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, routeData }) => {
+const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, routeData, onSearchRoute, routeLoading }) => {
     // Coordenadas padrão (São Paulo) se não houver dados
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [showSearch, setShowSearch] = useState(false);
+
     const defaultLat = -23.5505;
     const defaultLng = -46.6333;
     
@@ -212,9 +218,7 @@ const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, ro
     return (
         <div className="col-12 xl:col-6 flex flex-column h-full">
             <div className="widget-card h-full p-0 overflow-hidden relative flex flex-column">
-                <div className="absolute top-0 left-0 z-1 p-3 surface-card border-bottom-right-radius shadow-2">
-                    <h3 className="text-sm font-bold text-800 m-0">Localização</h3>
-                </div>
+                <div className="flex-grow-1 relative">
                 {loading ? (
                     <Skeleton width="100%" height="100%" borderRadius="0" />
                 ) : (
@@ -239,6 +243,44 @@ const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, ro
                         </Marker>
                     </MapContainer>
                 )}
+                </div>
+                <div className="p-3 surface-card border-top-1 surface-border flex flex-column gap-2">
+                    <div className="flex align-items-center justify-content-between gap-2">
+                        <h3 className="text-sm font-bold text-800 m-0">Localização</h3>
+                        <Button 
+                            icon={showSearch ? "pi pi-chevron-up" : "pi pi-search"} 
+                            rounded 
+                            text 
+                            size="small" 
+                            className="w-2rem h-2rem"
+                            onClick={() => setShowSearch(!showSearch)} 
+                        />
+                    </div>
+                    {showSearch && (
+                        <div className="flex flex-column gap-2 fadein animation-duration-200">
+                            <div className="flex flex-column gap-1">
+                                <label className="text-xs font-medium text-600">Início</label>
+                                <Calendar value={startDate} onChange={(e) => setStartDate(e.value)} showTime hourFormat="24" className="p-inputtext-sm text-xs w-full" placeholder="dd/mm/aaaa hh:mm" />
+                            </div>
+                            <div className="flex flex-column gap-1">
+                                <label className="text-xs font-medium text-600">Fim</label>
+                                <Calendar value={endDate} onChange={(e) => setEndDate(e.value)} showTime hourFormat="24" className="p-inputtext-sm text-xs w-full" placeholder="dd/mm/aaaa hh:mm" />
+                            </div>
+                            <Button 
+                                label="Buscar Rota" 
+                                icon="pi pi-search" 
+                                size="small" 
+                                className="text-xs w-full mt-1" 
+                                loading={routeLoading} 
+                                onClick={() => onSearchRoute && onSearchRoute(startDate, endDate)} 
+                                disabled={!startDate || !endDate} 
+                            />
+                            {routeData && routeData.length > 0 && (
+                                <small className="text-center text-500 block">{routeData.length} pontos na rota</small>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -259,6 +301,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     const [reportStartDate, setReportStartDate] = useState(null);
     const [reportEndDate, setReportEndDate] = useState(null);
     const [reportLoading, setReportLoading] = useState(false);
+    const [customRoute, setCustomRoute] = useState(null);
+    const [routeLoading, setRouteLoading] = useState(false);
     const toast = useRef(null);
     const navigate = useNavigate();
 
@@ -268,25 +312,42 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
 
     // --- ROUTE PROCESSING ---
     const routeData = useMemo(() => {
-        // MOCK: Se não tiver histórico
-        const mockRoute = [
-            [-23.550520, -46.633308], [-23.551200, -46.634100], [-23.552000, -46.635000],
-            [-23.553500, -46.636500], [-23.555000, -46.638000], [-23.556500, -46.639500]
-        ];
+        return customRoute || [];
+    }, [customRoute]);
 
-        if (!historyData || historyData.length === 0) return mockRoute;
-        
-        // Processa rota usando latitude e longitude do histórico
-        const realRoute = historyData
-            .filter(d => (d.latitude || d.lat) && (d.longitude || d.lng))
-            .sort((a, b) => new Date(a.ts || a.created_at) - new Date(b.ts || b.created_at))
-            .map(d => [
-                Number(d.latitude || d.lat), 
-                Number(d.longitude || d.lng)
-            ]);
+    const handleRouteSearch = useCallback(async (start, end) => {
+        if (!beacon?.mac || !start || !end) return;
+        setRouteLoading(true);
+        try {
+            const url = new URL(COORDINATES_API_URL);
+            url.searchParams.append('mac', beacon.mac);
+            url.searchParams.append('startDate', start.toISOString());
+            url.searchParams.append('endDate', end.toISOString());
 
-        return realRoute.length > 0 ? realRoute : mockRoute;
-    }, [historyData]);
+            const response = await fetch(url, {
+                headers: { 'x-api-key': import.meta.env.VITE_API_KEY }
+            });
+
+            if (response.status === 401) {
+                navigate('/login');
+                return;
+            }
+
+            if (!response.ok) throw new Error('Falha ao buscar rota');
+
+            const data = await response.json();
+            const points = data.map(p => [p.lat, p.lng]);
+            
+            setCustomRoute(points);
+            toast.current.show({ severity: 'success', summary: 'Rota', detail: `Rota carregada com ${points.length} pontos.` });
+
+        } catch (error) {
+            console.error("Erro ao buscar rota:", error);
+            toast.current.show({ severity: 'error', summary: 'Erro', detail: 'Erro ao carregar rota.' });
+        } finally {
+            setRouteLoading(false);
+        }
+    }, [beacon, navigate]);
 
     const handleOpenConfig = () => {
         const source = sensorInfo || beacon;
@@ -356,8 +417,71 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
         }
     };
 
-    const handleExportExcel = useCallback(() => { /* ... (mesmo código do excel) ... */ }, [historyData, beacon, period]);
-    const handleDownloadReport = async () => { /* ... (mesmo código do relatório) ... */ };
+    const handleExportExcel = useCallback(() => {
+        if (!historyData || historyData.length === 0) {
+            toast.current.show({ severity: 'warn', summary: 'Atenção', detail: 'Sem dados para exportar.' });
+            return;
+        }
+
+        const data = historyData.map(item => ({
+            "Data/Hora": new Date(item.ts || item.created_at).toLocaleString('pt-BR'),
+            "Temperatura (°C)": item.temp ?? item.temperature ?? 0,
+            "Umidade (%)": item.hum ?? item.humidity ?? 0,
+            "Bateria (%)": item.batt ?? item.battery_level ?? 0
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Histórico");
+        XLSX.writeFile(workbook, `historico_${beacon.mac}_${period}.xlsx`);
+    }, [historyData, beacon, period]);
+
+    const handleDownloadReport = async () => {
+        if (!reportStartDate || !reportEndDate) {
+            toast.current.show({ severity: 'warn', summary: 'Atenção', detail: 'Selecione as datas inicial e final.' });
+            return;
+        }
+
+        setReportLoading(true);
+        try {
+            const url = new URL(REPORT_API_URL);
+            url.searchParams.append('mac', beacon.mac);
+            url.searchParams.append('startDate', reportStartDate.toISOString());
+            url.searchParams.append('endDate', reportEndDate.toISOString());
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'x-api-key': import.meta.env.VITE_API_KEY }
+            });
+
+            if (response.status === 401) return navigate('/login');
+
+            if (response.status === 404) {
+                toast.current.show({ severity: 'warn', summary: 'Aviso', detail: 'Nenhum dado encontrado para o período selecionado.' });
+                return;
+            }
+
+            if (!response.ok) throw new Error('Falha ao gerar relatório');
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `relatorio_${beacon.mac}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+            
+            setShowReportDialog(false);
+            toast.current.show({ severity: 'success', summary: 'Sucesso', detail: 'Relatório baixado.' });
+        } catch (error) {
+            console.error("Erro download relatorio:", error);
+            toast.current.show({ severity: 'error', summary: 'Erro', detail: 'Falha ao baixar relatório.' });
+        } finally {
+            setReportLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (historyError) toast.current?.show({ severity: 'error', summary: 'Erro', detail: 'Não foi possível carregar o histórico.' });
@@ -492,6 +616,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                         loading={loading}
                         addressLoading={addressLoading}
                         routeData={routeData}
+                        onSearchRoute={handleRouteSearch}
+                        routeLoading={routeLoading}
                     />
                 )}
             </div>

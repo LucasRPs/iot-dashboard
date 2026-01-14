@@ -19,6 +19,7 @@ import GatewaysView from './components/GatewaysView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import { supabase } from './supabaseClient';
 
 addLocale('pt', (await import('../pt.ts')).pt);
 locale('pt');
@@ -90,27 +91,10 @@ const SectorsConfigPage = ({ sectors, setSectors, beacons }) => {
     );
 };
 
-const LoginPageWrapper = () => {
-    const navigate = useNavigate();
-    
-    useEffect(() => {
-        const isAuthenticated = localStorage.getItem('alcateia_auth') === 'true';
-        if (isAuthenticated) {
-            navigate('/dashboard', { replace: true });
-        }
-    }, [navigate]);
-    
-    const handleLogin = (username, password) => {
-        if (username && password) {
-            localStorage.setItem('alcateia_auth', 'true');
-            navigate('/dashboard', { replace: true });
-        }
-    };
-    return <LoginView onLogin={handleLogin} />;
-};
-
 // --- APP PRINCIPAL ---
 function App() {
+    const [session, setSession] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
     const [beacons, setBeacons] = useState([]);
     const [sectors, setSectors] = useState([]);
     const [settings, setSettings] = useState({
@@ -123,6 +107,21 @@ function App() {
     const historyRef = useRef({});
     const navigate = useNavigate();
 
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setAuthLoading(false);
+        });
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            setAuthLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
 
     const handleUpdateSensor = (updatedBeacon) => {
@@ -146,7 +145,7 @@ function App() {
             });
 
             if (response.status === 401) {
-                localStorage.removeItem('alcateia_auth');
+                await supabase.auth.signOut();
                 navigate('/login');
                 return;
             }
@@ -226,6 +225,10 @@ function App() {
         return () => clearInterval(interval);
     }, [fetchData]);
 
+    if (authLoading) {
+        return <div className="flex align-items-center justify-content-center h-screen"><i className="pi pi-spin pi-spinner text-4xl text-indigo-600"></i></div>;
+    }
+
     return (
         <>
         <style>{`
@@ -235,13 +238,13 @@ function App() {
         `}</style>
         <Routes>
             {/* Rota de Login (pública) */}
-            <Route path="/login" element={<LoginPageWrapper />} />
+            <Route path="/login" element={!session ? <LoginView onLogin={() => {}} /> : <Navigate to="/dashboard" replace />} />
             
             {/* Rotas protegidas */}
             <Route
                 path="/*"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute session={session}>
                         <Layout
                             beacons={beacons}
                             sectors={sectors}
