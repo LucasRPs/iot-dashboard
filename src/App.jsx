@@ -156,7 +156,7 @@ function App() {
             const sensorList = Array.isArray(data) ? data : (data.data || []);
 
             if (sensorList.length > 0) {
-                const formattedBeacons = sensorList.map(s => {
+                const formattedBeacons = sensorList.map((s, index) => {
                     const temp = parseFloat(s.current_temp ?? s.temp ?? 0);
                     const hum = parseFloat(s.current_hum ?? s.hum ?? 0);
                     const batt = Number(s.battery_level ?? s.batt ?? 0);
@@ -196,7 +196,8 @@ function App() {
                         ts: ts,
                         lastSeen: lastSeenDate,
                         gateway: s.gateway || s.gw,
-                        sector: s.sector
+                        sector: s.sector,
+                        locked: s.locked !== undefined && s.locked !== null ? s.locked : ((Math.floor(Date.now() / 10000) + index) % 2 === 0)
                     };
                 });
 

@@ -8,6 +8,7 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { Calendar } from 'primereact/calendar';
+import { Tag } from 'primereact/tag';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -498,6 +499,9 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     const hasLocation = currentLat != null && currentLng != null;
     const kpiColClass = hasLocation ? "col-12 sm:col-6 xl:col-3" : "col-12 sm:col-6 md:col-4";
 
+    const isLocked = String(beacon.locked) === 'true' || beacon.locked === true || beacon.locked === 1;
+    const hasLockInfo = beacon.locked !== undefined && beacon.locked !== null;
+
     return (
         <div className="h-full flex flex-column gap-4 overflow-y-auto p-2 custom-scrollbar">
             <Toast ref={toast} />
@@ -508,7 +512,16 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                         <i className="pi pi-box text-xl"></i>
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-900 m-0">{sensorInfo?.display_name || beacon.display_name || 'Sensor'}</h1>
+                        <div className="flex align-items-center gap-2">
+                            <h1 className="text-2xl font-bold text-900 m-0">{sensorInfo?.display_name || beacon.display_name || 'Sensor'}</h1>
+                            {hasLockInfo && (
+                                <Tag 
+                                    severity={isLocked ? 'danger' : 'success'} 
+                                    value={isLocked ? 'Porta Fechada' : 'Porta Aberta'} 
+                                    icon={isLocked ? 'pi pi-lock' : 'pi pi-lock-open'}
+                                />
+                            )}
+                        </div>
                         <span className="text-xs font-mono text-500">{beacon.mac}</span>
                     </div>
                 </div>
