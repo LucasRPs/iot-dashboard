@@ -37,7 +37,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
         <div className="dashboard-overview">
             {unassignedBeacons.length > 0 && (
                 <div className="sector-group">
-                    <h2 className="sector-title">Sensores não atribuídos</h2>
+                    
                     <div className="grid">
                         {unassignedBeacons.map(beacon => (
                             <div key={beacon.mac} className="col-12 sm:col-6 md:col-4 xl:col-3">
