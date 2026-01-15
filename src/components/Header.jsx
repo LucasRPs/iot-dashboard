@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Button } from 'primereact/button';
 
-const Header = ({ onLogout }) => {
+const Header = ({ onLogout, onMenuToggle }) => {
     const location = useLocation();
 
     const pageInfo = useMemo(() => {
@@ -20,13 +21,13 @@ const Header = ({ onLogout }) => {
 
     return (
         <div className="header-panel">
-            <div>
+            <div className="flex align-items-center gap-2">
+                <Button icon="pi pi-bars" text rounded className="md:hidden text-slate-700" onClick={onMenuToggle} />
                 <div className="breadcrumb">
                     <span>Alcate-IA</span>
                     <i className="pi pi-angle-right text-xs"></i>
                     <span className="font-semibold">{pageInfo.breadcrumb}</span>
                 </div>
-                <h1 className="page-title">{pageInfo.title}</h1>
             </div>
             <div className="flex align-items-center gap-3">
                 <button onClick={onLogout} title="Sair" className="logout-button" aria-label="Sair">

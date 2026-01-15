@@ -42,14 +42,14 @@ const ReportsView = () => {
     }, []);
 
     const header = (
-        <div className="flex flex-wrap justify-content-between align-items-center py-2 px-3 surface-card border-bottom-1 surface-border">
+        <div className="flex flex-wrap justify-content-between align-items-center py-2 px-3 surface-card border-bottom-1 surface-border gap-2">
             <div className="flex align-items-center gap-2">
                 <i className="pi pi-table text-indigo-600"></i>
                 <span className="text-900 font-bold text-sm">Histórico</span>
             </div>
-            <span className="p-input-icon-left">
+            <span className="p-input-icon-left w-full sm:w-auto">
                 <i className="pi pi-search text-gray-400" style={{ fontSize: '0.8rem' }} />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.target.value)} placeholder="Buscar..." className="custom-search-input w-15rem h-2rem text-xs pl-5" />
+                <InputText type="search" onInput={(e) => setGlobalFilter(e.target.value)} placeholder="Buscar..." className="custom-search-input w-full sm:w-15rem h-2rem text-xs pl-5" />
             </span>
         </div>
     );

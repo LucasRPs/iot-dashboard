@@ -8,9 +8,9 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
             <div className="dashboard-overview">
                 <div className="sector-group">
                     <h2 className="sector-title"><Skeleton width="12rem" height="1.5rem" className="mb-2" /></h2>
-                    <div className="sensor-grid">
+                    <div className="grid">
                         {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="sensor-card p-3 flex flex-column justify-content-between" style={{ height: '140px' }}>
+                            <div key={i} className="col-12 sm:col-6 md:col-4 xl:col-3"><div className="sensor-card p-3 flex flex-column justify-content-between h-full">
                                 <div className="flex justify-content-between align-items-start">
                                     <Skeleton width="50%" height="1.2rem" />
                                     <Skeleton width="20%" height="1rem" borderRadius="12px" />
@@ -23,7 +23,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
                                     <Skeleton width="30%" height="0.8rem" />
                                     <Skeleton width="30%" height="0.8rem" />
                                 </div>
-                            </div>
+                            </div></div>
                         ))}
                     </div>
                 </div>
@@ -38,9 +38,11 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
             {unassignedBeacons.length > 0 && (
                 <div className="sector-group">
                     <h2 className="sector-title">Sensores não atribuídos</h2>
-                    <div className="sensor-grid">
+                    <div className="grid">
                         {unassignedBeacons.map(beacon => (
-                            <SensorCard key={beacon.mac} beacon={beacon} onClick={onSelect} />
+                            <div key={beacon.mac} className="col-12 sm:col-6 md:col-4 xl:col-3">
+                                <SensorCard beacon={beacon} onClick={onSelect} />
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -53,9 +55,11 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
                 return (
                     <div key={sector.id} className="sector-group">
                         <h2 className="sector-title">{sector.name}</h2>
-                        <div className="sensor-grid">
+                        <div className="grid">
                             {sectorBeacons.map(beacon => (
-                                <SensorCard key={beacon.mac} beacon={beacon} onClick={onSelect} />
+                                <div key={beacon.mac} className="col-12 sm:col-6 md:col-4 xl:col-3">
+                                    <SensorCard beacon={beacon} onClick={onSelect} />
+                                </div>
                             ))}
                         </div>
                     </div>

@@ -98,7 +98,7 @@ const GatewaysView = ({ onSelectBeacon }) => {
                 <div className="grid flex-grow-1 overflow-y-auto custom-scrollbar">
                     {loading ? (
                         Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="col-12 md:col-6 lg:col-3">
+                            <div key={i} className="col-12 sm:col-6 lg:col-4 xl:col-3">
                                 <div className="widget-card p-3 flex flex-column gap-2">
                                     <div className="flex justify-content-between align-items-start gap-2">
                                         <Skeleton width="50%" height="1.2rem" />
@@ -121,7 +121,7 @@ const GatewaysView = ({ onSelectBeacon }) => {
                         </div>
                     ) : (
                         gatewayData.map((gw) => (
-                            <div key={gw.gateway} className="col-12 md:col-6 lg:col-3">
+                            <div key={gw.gateway} className="col-12 sm:col-6 lg:col-4 xl:col-3">
                                 <div className="widget-card p-3 flex flex-column gap-2">
                                     {/* Gateway Header */}
                                     <div className="flex justify-content-between align-items-start gap-2">

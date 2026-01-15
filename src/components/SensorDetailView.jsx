@@ -125,7 +125,7 @@ const processHistoryForChart = (historyData, period) => {
                 borderColor: '#fbbf24',
                 backgroundColor: 'rgba(251, 191, 36, 0.1)',
                 yAxisID: 'y',
-                fill: true,
+                fill: false,
                 tension: 0.4,
                 borderWidth: 2,
             },
@@ -135,7 +135,7 @@ const processHistoryForChart = (historyData, period) => {
                 borderColor: '#60a5fa',
                 backgroundColor: 'rgba(96, 165, 250, 0.1)',
                 yAxisID: 'y1',
-                fill: true,
+                fill: false,
                 tension: 0.4,
                 borderWidth: 2,
             },
@@ -167,9 +167,9 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
 
     return (
         <div className="widget-card h-full flex flex-column">
-            <div className="flex justify-content-between align-items-center mb-4">
-                <h3 className="text-sm font-bold text-800">Histórico de Temperatura</h3>
-                <div className="flex align-items-center gap-2">
+            <div className="flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <h3 className="text-sm font-bold text-800 m-0">Histórico de Temperatura</h3>
+                <div className="flex flex-wrap align-items-center gap-2">
                     <div className="flex align-items-center surface-100 border-round p-1">
                         {periodOptions.map((opt) => (
                             <Button
@@ -182,7 +182,9 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
                             />
                         ))}
                     </div>
-                    <Button rounded text severity="info" disabled={!historyData || historyData.length === 0} onClick={onExport}>Exportar Excel</Button>
+                    <Button rounded text severity="info" icon="pi pi-file-excel" disabled={!historyData || historyData.length === 0} onClick={onExport} tooltip="Exportar Excel">
+                        <span className="hidden sm:inline ml-2">Exportar Excel</span>
+                    </Button>
                 </div>
             </div>
             <div className="flex-grow-1 relative">
@@ -216,7 +218,7 @@ const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, ro
     const alt = sensorInfo?.altitude ?? 0;
 
     return (
-        <div className="col-12 xl:col-6 flex flex-column h-full">
+        <div className="col-12 xl:col-6 flex flex-column h-30rem xl:h-full">
             <div className="widget-card h-full p-0 overflow-hidden relative flex flex-column">
                 <div className="flex-grow-1 relative">
                 {loading ? (
@@ -494,13 +496,13 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     const currentLng = sensorInfo?.longitude ?? sensorInfo?.lng;
     const currentAlt = sensorInfo?.altitude;
     const hasLocation = currentLat != null && currentLng != null;
-    const kpiColClass = hasLocation ? "col-12 md:col-6 xl:col-3" : "col-12 md:col-4";
+    const kpiColClass = hasLocation ? "col-12 sm:col-6 xl:col-3" : "col-12 sm:col-6 md:col-4";
 
     return (
-        <div className="h-full flex flex-column gap-4">
+        <div className="h-full flex flex-column gap-4 overflow-y-auto p-2 custom-scrollbar">
             <Toast ref={toast} />
             {/* Header */}
-            <div className="flex justify-content-between align-items-center">
+            <div className="flex flex-wrap justify-content-between align-items-center gap-3">
                 <div className="flex align-items-center gap-3">
                     <div className="w-3rem h-3rem bg-indigo-50 border-circle flex align-items-center justify-content-center text-indigo-600">
                         <i className="pi pi-box text-xl"></i>
@@ -598,8 +600,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
             </div>
 
             {/* Bottom Section: Chart + Map */}
-            <div className="grid flex-grow-1 min-h-0">
-                <div className={`${hasLocation ? 'col-12 xl:col-6' : 'col-12'} flex flex-column h-full`}>
+            <div className="grid flex-grow-1 h-auto xl:min-h-0">
+                <div className={`${hasLocation ? 'col-12 xl:col-6' : 'col-12'} flex flex-column h-30rem xl:h-full`}>
                     <TemperatureChart 
                         historyData={historyData}
                         period={period}

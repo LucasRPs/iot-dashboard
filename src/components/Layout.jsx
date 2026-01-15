@@ -3,9 +3,11 @@ import { useNavigate, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { supabase } from '../supabaseClient';
+import { Sidebar as PrimeSidebar } from 'primereact/sidebar';
 
 const Layout = ({ beacons, sectors, setSectors, settings, setSettings }) => {
     const navigate = useNavigate();
+    const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
     
     useEffect(() => {
         const savedSectors = localStorage.getItem('alcateia_sectors');
@@ -28,9 +30,21 @@ const Layout = ({ beacons, sectors, setSectors, settings, setSettings }) => {
 
     return (
         <div className="layout-shell">
-            <Sidebar beacons={beacons} settings={settings} />
+            {/* Desktop Sidebar */}
+            <Sidebar 
+                beacons={beacons} 
+                settings={settings} 
+                className="hidden md:flex flex-column h-full" 
+                style={{ width: '260px', minWidth: '260px' }} 
+            />
+
+            {/* Mobile Sidebar (Drawer) */}
+            <PrimeSidebar visible={mobileSidebarVisible} onHide={() => setMobileSidebarVisible(false)} className="p-0 w-18rem bg-slate-900 border-none">
+                <Sidebar beacons={beacons} settings={settings} className="flex flex-column h-full w-full" onNavigate={() => setMobileSidebarVisible(false)} />
+            </PrimeSidebar>
+
             <div className="content-panel">
-                <Header onLogout={handleLogout} />
+                <Header onLogout={handleLogout} onMenuToggle={() => setMobileSidebarVisible(true)} />
                 <main className="main-content">
                     <Outlet />
                 </main>
