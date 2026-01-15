@@ -27,6 +27,7 @@ locale('pt');
 // --- CONFIGURAÇÕES ---
 const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
 const OFFLINE_THRESHOLD_MS = 60 * 1000; // 1 Minuto para considerar Offline
+const FEATURE_SENSOR_PORTA = import.meta.env.VITE_HAB_FEAT_SENSOR_PORTA === 'true';
 
 // --- COMPONENTES WRAPPERS (Definidos fora do App para evitar re-mounts) ---
 
@@ -197,7 +198,7 @@ function App() {
                         lastSeen: lastSeenDate,
                         gateway: s.gateway || s.gw,
                         sector: s.sector,
-                        locked: s.locked !== undefined && s.locked !== null ? s.locked : ((Math.floor(Date.now() / 10000) + index) % 2 === 0)
+                        locked: FEATURE_SENSOR_PORTA ? (s.locked !== undefined && s.locked !== null ? s.locked : ((Math.floor(Date.now() / 10000) + index) % 2 === 0)) : undefined
                     };
                 });
 
