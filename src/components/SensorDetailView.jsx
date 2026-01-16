@@ -7,6 +7,7 @@ import { Skeleton } from 'primereact/skeleton';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
+import { InputMask } from 'primereact/inputmask';
 import { Calendar } from 'primereact/calendar';
 import { Tag } from 'primereact/tag';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
@@ -296,7 +297,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
         display_name: '',
         max_temp: null,
         max_hum: null,
-        batt_warning: null
+        batt_warning: null,
+        sensor_porta_vinculado: ''
     });
     const [address, setAddress] = useState(null);
     const [addressLoading, setAddressLoading] = useState(false);
@@ -359,7 +361,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                 display_name: source.display_name || '',
                 max_temp: source.temp_max || source.max_temp || null,
                 max_hum: source.hum_max || source.max_hum || null,
-                batt_warning: source.batt_warning || null
+                batt_warning: source.batt_warning || null,
+                sensor_porta_vinculado: source.sensor_porta_vinculado || ''
             });
         }
         setDisplayConfig(true);
@@ -516,7 +519,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                             <h1 className="text-2xl font-bold text-900 m-0">{sensorInfo?.display_name || beacon.display_name || 'Sensor'}</h1>
                             {hasLockInfo && (
                                 <Tag 
-                                    severity={isLocked ? 'danger' : 'success'} 
+                                    severity={isLocked ? 'success' : 'danger'} 
                                     value={isLocked ? 'Porta Fechada' : 'Porta Aberta'} 
                                     icon={isLocked ? 'pi pi-lock' : 'pi pi-lock-open'}
                                 />
@@ -649,6 +652,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                     <span className="p-float-label"><InputNumber id="maxTemp" value={configValues.max_temp} onValueChange={(e) => setConfigValues({...configValues, max_temp: e.value})} mode="decimal" suffix=" °C" className="w-full" /><label htmlFor="maxTemp">Alerta de Temp. Máxima</label></span>
                     <span className="p-float-label"><InputNumber id="maxHum" value={configValues.max_hum} onValueChange={(e) => setConfigValues({...configValues, max_hum: e.value})} suffix=" %" className="w-full" /><label htmlFor="maxHum">Alerta de Umidade Máxima</label></span>
                     <span className="p-float-label"><InputNumber id="battWarning" value={configValues.batt_warning} onValueChange={(e) => setConfigValues({...configValues, batt_warning: e.value})} suffix=" %" className="w-full" /><label htmlFor="battWarning">Alerta de Bateria Baixa</label></span>
+                    <span className="p-float-label"><InputMask id="sensorPorta" mask="**:**:**:**:**:**" value={configValues.sensor_porta_vinculado} onChange={(e) => setConfigValues({...configValues, sensor_porta_vinculado: e.value?.toUpperCase() })} className="w-full" /><label htmlFor="sensorPorta">MAC Sensor Porta</label></span>
                 </div>
             </Dialog>
 

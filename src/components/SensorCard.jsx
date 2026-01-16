@@ -51,7 +51,7 @@ const SensorCard = memo(({ beacon, onClick }) => {
                 <div className="sensor-mac">{beacon.mac.slice(-5)}</div>
                 {hasLockInfo && (
                     <Tag 
-                        severity={isLocked ? 'danger' : 'success'} 
+                        severity={isLocked ? 'success' : 'danger'} 
                         value={isLocked ? 'Porta Fechada' : 'Porta Aberta'} 
                         icon={isLocked ? 'pi pi-lock' : 'pi pi-lock-open'}
                     />

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Skeleton } from 'primereact/skeleton';
 import SensorCard from './SensorCard';
 
 const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
+
     if (loading) {
         return (
             <div className="dashboard-overview">
@@ -37,7 +38,7 @@ const DashboardOverview = ({ beacons, sectors, onSelect, loading }) => {
         <div className="dashboard-overview">
             {unassignedBeacons.length > 0 && (
                 <div className="sector-group">
-                    
+                    <h2 className="sector-title">Sensores não atribuídos</h2>
                     <div className="grid">
                         {unassignedBeacons.map(beacon => (
                             <div key={beacon.mac} className="col-12 sm:col-6 md:col-4 xl:col-3">
