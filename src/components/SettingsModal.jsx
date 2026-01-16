@@ -16,7 +16,7 @@ const SettingsModal = ({ visible, onHide, settings, onSave }) => {
     };
 
     return (
-        <Dialog header="Configurações Globais" visible={visible} style={{ width: '400px' }} onHide={onHide} modal className="p-fluid settings-dialog">
+        <Dialog header="Configurações Globais" visible={visible} style={{ width: 'min(400px, 90vw)' }} onHide={onHide} modal className="p-fluid settings-dialog">
             <div className="flex flex-column gap-4">
                 <div>
                     <h3 className="text-sm font-bold text-slate-700 mb-3">Limites de Temperatura</h3>

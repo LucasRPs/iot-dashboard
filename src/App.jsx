@@ -27,6 +27,7 @@ locale('pt');
 // --- CONFIGURAÇÕES ---
 const N8N_API_URL = `${import.meta.env.VITE_API_BASE_URL}/sensores/latest`;
 const OFFLINE_THRESHOLD_MS = 60 * 1000; // 1 Minuto para considerar Offline
+const FEATURE_SENSOR_PORTA = true;
 
 // --- COMPONENTES WRAPPERS (Definidos fora do App para evitar re-mounts) ---
 
@@ -156,7 +157,7 @@ function App() {
             const sensorList = Array.isArray(data) ? data : (data.data || []);
 
             if (sensorList.length > 0) {
-                const formattedBeacons = sensorList.map(s => {
+                const formattedBeacons = sensorList.map((s, index) => {
                     const temp = parseFloat(s.current_temp ?? s.temp ?? 0);
                     const hum = parseFloat(s.current_hum ?? s.hum ?? 0);
                     const batt = Number(s.battery_level ?? s.batt ?? 0);
@@ -196,7 +197,8 @@ function App() {
                         ts: ts,
                         lastSeen: lastSeenDate,
                         gateway: s.gateway || s.gw,
-                        sector: s.sector
+                        sector: s.sector,
+                        locked: (FEATURE_SENSOR_PORTA && s.status_porta && s.status_porta.is_open !== undefined) ? !s.status_porta.is_open : undefined
                     };
                 });
 
@@ -221,7 +223,7 @@ function App() {
     // Polling de dados
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 60000); 
+        const interval = setInterval(fetchData, 3000); 
         return () => clearInterval(interval);
     }, [fetchData]);
 

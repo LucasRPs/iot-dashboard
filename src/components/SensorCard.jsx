@@ -1,4 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
+import { Tag } from 'primereact/tag';
 
 const OFFLINE_THRESHOLD_MS = 60000; // 1 minuto
 
@@ -11,6 +12,8 @@ const SensorCard = memo(({ beacon, onClick }) => {
     }, []);
 
     const isOffline = (now - new Date(beacon.lastSeen).getTime()) > OFFLINE_THRESHOLD_MS;
+    const isLocked = String(beacon.locked) === 'true' || beacon.locked === true || beacon.locked === 1;
+    const hasLockInfo = beacon.locked !== undefined && beacon.locked !== null;
 
     const getStatusBadge = () => {
         if (isOffline) return <div className="status-badge offline">Offline</div>;
@@ -23,7 +26,9 @@ const SensorCard = memo(({ beacon, onClick }) => {
             onClick={() => onClick(beacon)}
         >
             <div className="card-header">
-                <span className="sensor-name">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
+                <div className="flex align-items-center gap-2 overflow-hidden">
+                    <span className="sensor-name white-space-nowrap overflow-hidden text-overflow-ellipsis">{beacon.display_name || beacon.device_name || 'Sensor'}</span>
+                </div>
                 {getStatusBadge()}
             </div>
             <div className="card-body">
@@ -44,6 +49,13 @@ const SensorCard = memo(({ beacon, onClick }) => {
                     <span>{beacon.batt}%</span>
                 </div>
                 <div className="sensor-mac">{beacon.mac.slice(-5)}</div>
+                {hasLockInfo && (
+                    <Tag 
+                        severity={isLocked ? 'success' : 'danger'} 
+                        value={isLocked ? 'Porta Fechada' : 'Porta Aberta'} 
+                        icon={isLocked ? 'pi pi-lock' : 'pi pi-lock-open'}
+                    />
+                )}
             </div>
         </div>
     );

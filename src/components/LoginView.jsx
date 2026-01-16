@@ -52,7 +52,7 @@ const LoginView = ({ onLogin }) => {
 
     return (
         <div className="flex align-items-center justify-content-center min-h-screen" style={{ backgroundColor: 'var(--surface-200)' }}>
-            <div className="surface-card p-6 shadow-4 border-round-xl w-full md:w-30rem fade-in-up">
+            <div className="surface-card p-4 md:p-6 shadow-4 border-round-xl w-full max-w-30rem m-3 fade-in-up">
                 <div className="text-center mb-6">
                     <div className="inline-flex align-items-center justify-content-center bg-indigo-50 border-circle w-5rem h-5rem mb-4">
                         <Avatar label="AI" shape="circle" className="bg-black text-white font-bold text-2xl shadow-md w-full h-full" />

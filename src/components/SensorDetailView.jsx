@@ -7,7 +7,9 @@ import { Skeleton } from 'primereact/skeleton';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
+import { InputMask } from 'primereact/inputmask';
 import { Calendar } from 'primereact/calendar';
+import { Tag } from 'primereact/tag';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -125,7 +127,7 @@ const processHistoryForChart = (historyData, period) => {
                 borderColor: '#fbbf24',
                 backgroundColor: 'rgba(251, 191, 36, 0.1)',
                 yAxisID: 'y',
-                fill: true,
+                fill: false,
                 tension: 0.4,
                 borderWidth: 2,
             },
@@ -135,7 +137,7 @@ const processHistoryForChart = (historyData, period) => {
                 borderColor: '#60a5fa',
                 backgroundColor: 'rgba(96, 165, 250, 0.1)',
                 yAxisID: 'y1',
-                fill: true,
+                fill: false,
                 tension: 0.4,
                 borderWidth: 2,
             },
@@ -167,9 +169,9 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
 
     return (
         <div className="widget-card h-full flex flex-column">
-            <div className="flex justify-content-between align-items-center mb-4">
-                <h3 className="text-sm font-bold text-800">Histórico de Temperatura</h3>
-                <div className="flex align-items-center gap-2">
+            <div className="flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                <h3 className="text-sm font-bold text-800 m-0">Histórico de Temperatura</h3>
+                <div className="flex flex-wrap align-items-center gap-2">
                     <div className="flex align-items-center surface-100 border-round p-1">
                         {periodOptions.map((opt) => (
                             <Button
@@ -182,7 +184,9 @@ const TemperatureChart = React.memo(({ historyData, period, loading, onPeriodCha
                             />
                         ))}
                     </div>
-                    <Button rounded text severity="info" disabled={!historyData || historyData.length === 0} onClick={onExport}>Exportar Excel</Button>
+                    <Button rounded text severity="info" icon="pi pi-file-excel" disabled={!historyData || historyData.length === 0} onClick={onExport} tooltip="Exportar Excel">
+                        <span className="hidden sm:inline ml-2">Exportar Excel</span>
+                    </Button>
                 </div>
             </div>
             <div className="flex-grow-1 relative">
@@ -216,7 +220,7 @@ const SensorMap = React.memo(({ sensorInfo, address, loading, addressLoading, ro
     const alt = sensorInfo?.altitude ?? 0;
 
     return (
-        <div className="col-12 xl:col-6 flex flex-column h-full">
+        <div className="col-12 xl:col-6 flex flex-column h-30rem xl:h-full">
             <div className="widget-card h-full p-0 overflow-hidden relative flex flex-column">
                 <div className="flex-grow-1 relative">
                 {loading ? (
@@ -293,7 +297,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
         display_name: '',
         max_temp: null,
         max_hum: null,
-        batt_warning: null
+        batt_warning: null,
+        sensor_porta_vinculado: ''
     });
     const [address, setAddress] = useState(null);
     const [addressLoading, setAddressLoading] = useState(false);
@@ -356,7 +361,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                 display_name: source.display_name || '',
                 max_temp: source.temp_max || source.max_temp || null,
                 max_hum: source.hum_max || source.max_hum || null,
-                batt_warning: source.batt_warning || null
+                batt_warning: source.batt_warning || null,
+                sensor_porta_vinculado: source.sensor_porta_vinculado || ''
             });
         }
         setDisplayConfig(true);
@@ -494,19 +500,31 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
     const currentLng = sensorInfo?.longitude ?? sensorInfo?.lng;
     const currentAlt = sensorInfo?.altitude;
     const hasLocation = currentLat != null && currentLng != null;
-    const kpiColClass = hasLocation ? "col-12 md:col-6 xl:col-3" : "col-12 md:col-4";
+    const kpiColClass = hasLocation ? "col-12 sm:col-6 xl:col-3" : "col-12 sm:col-6 md:col-4";
+
+    const isLocked = String(beacon.locked) === 'true' || beacon.locked === true || beacon.locked === 1;
+    const hasLockInfo = beacon.locked !== undefined && beacon.locked !== null;
 
     return (
-        <div className="h-full flex flex-column gap-4">
+        <div className="h-full flex flex-column gap-4 overflow-y-auto p-2 custom-scrollbar">
             <Toast ref={toast} />
             {/* Header */}
-            <div className="flex justify-content-between align-items-center">
+            <div className="flex flex-wrap justify-content-between align-items-center gap-3">
                 <div className="flex align-items-center gap-3">
                     <div className="w-3rem h-3rem bg-indigo-50 border-circle flex align-items-center justify-content-center text-indigo-600">
                         <i className="pi pi-box text-xl"></i>
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-900 m-0">{sensorInfo?.display_name || beacon.display_name || 'Sensor'}</h1>
+                        <div className="flex align-items-center gap-2">
+                            <h1 className="text-2xl font-bold text-900 m-0">{sensorInfo?.display_name || beacon.display_name || 'Sensor'}</h1>
+                            {hasLockInfo && (
+                                <Tag 
+                                    severity={isLocked ? 'success' : 'danger'} 
+                                    value={isLocked ? 'Porta Fechada' : 'Porta Aberta'} 
+                                    icon={isLocked ? 'pi pi-lock' : 'pi pi-lock-open'}
+                                />
+                            )}
+                        </div>
                         <span className="text-xs font-mono text-500">{beacon.mac}</span>
                     </div>
                 </div>
@@ -598,8 +616,8 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
             </div>
 
             {/* Bottom Section: Chart + Map */}
-            <div className="grid flex-grow-1 min-h-0">
-                <div className={`${hasLocation ? 'col-12 xl:col-6' : 'col-12'} flex flex-column h-full`}>
+            <div className="grid flex-grow-1 h-auto xl:min-h-0">
+                <div className={`${hasLocation ? 'col-12 xl:col-6' : 'col-12'} flex flex-column h-30rem xl:h-full`}>
                     <TemperatureChart 
                         historyData={historyData}
                         period={period}
@@ -634,6 +652,7 @@ const SensorDetailView = ({ beacon, settings, onUpdate }) => {
                     <span className="p-float-label"><InputNumber id="maxTemp" value={configValues.max_temp} onValueChange={(e) => setConfigValues({...configValues, max_temp: e.value})} mode="decimal" suffix=" °C" className="w-full" /><label htmlFor="maxTemp">Alerta de Temp. Máxima</label></span>
                     <span className="p-float-label"><InputNumber id="maxHum" value={configValues.max_hum} onValueChange={(e) => setConfigValues({...configValues, max_hum: e.value})} suffix=" %" className="w-full" /><label htmlFor="maxHum">Alerta de Umidade Máxima</label></span>
                     <span className="p-float-label"><InputNumber id="battWarning" value={configValues.batt_warning} onValueChange={(e) => setConfigValues({...configValues, batt_warning: e.value})} suffix=" %" className="w-full" /><label htmlFor="battWarning">Alerta de Bateria Baixa</label></span>
+                    <span className="p-float-label"><InputMask id="sensorPorta" mask="**:**:**:**:**:**" value={configValues.sensor_porta_vinculado} onChange={(e) => setConfigValues({...configValues, sensor_porta_vinculado: e.value?.toUpperCase() })} className="w-full" /><label htmlFor="sensorPorta">MAC Sensor Porta</label></span>
                 </div>
             </Dialog>
 

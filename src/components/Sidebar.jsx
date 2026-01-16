@@ -4,7 +4,7 @@ import { Avatar } from 'primereact/avatar';
 
 const OFFLINE_THRESHOLD_MS = 60 * 1000; // 1 Minuto para considerar Offline
 
-const Sidebar = ({ beacons, settings }) => {
+const Sidebar = ({ beacons, settings, className, style, onNavigate }) => {
     const location = useLocation();
 
     const getStatus = (lastSeenDate) => {
@@ -18,7 +18,7 @@ const Sidebar = ({ beacons, settings }) => {
     }, [beacons]);
 
     return (
-        <div className="sidebar-panel" style={{ width: '260px', minWidth: '260px' }}>
+        <div className={`sidebar-panel ${className || ''}`} style={style}>
             <div className="p-4 flex align-items-center gap-3  border-bottom-1 border-slate-700">
                 <Avatar label="A" shape="circle" className="bg-indigo-500 text-white font-bold w-2.5rem h-1rem shadow-md" />
                 <div>
@@ -28,21 +28,21 @@ const Sidebar = ({ beacons, settings }) => {
 
             <div className="flex-grow-1 overflow-y-auto py-3 custom-scrollbar">
                 <div className="text-label px-4 mb-2 mt-2">MONITORAMENTO</div>
-                <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onNavigate}>
                     <i className="pi pi-th-large"></i>
                     <span>Visão Geral</span>
                 </NavLink>
-                <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onNavigate}>
                     <i className="pi pi-chart-line"></i>
                     <span>Relatórios</span>
                 </NavLink>
-                <NavLink to="/gateways" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <NavLink to="/gateways" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onNavigate}>
                     <i className="pi pi-server"></i>
                     <span>Gateways</span>
                 </NavLink>
 
                 <div className="text-label px-4 mb-2 mt-5">GERENCIAMENTO</div>
-                <NavLink to="/config" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <NavLink to="/config" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onNavigate}>
                     <i className="pi pi-cog"></i>
                     <span>Setores</span>
                 </NavLink>
@@ -57,6 +57,7 @@ const Sidebar = ({ beacons, settings }) => {
                             to={`/sensor/${b.mac}`}
                             className={`nav-item ${isActive ? 'active' : ''}`}
                             title={b.display_name || b.mac}
+                            onClick={onNavigate}
                         >
                             <i className="pi pi-box text-xs"></i>
                             <span className="text-xs font-medium flex-1 white-space-nowrap overflow-hidden text-overflow-ellipsis">

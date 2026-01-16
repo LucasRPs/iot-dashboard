@@ -119,7 +119,7 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                             const lastSeenTs = (detectedBeacons || []).filter(b => s.macs.some(m => m.toLowerCase() === b.mac.toLowerCase())).map(b => b.ts).filter(Boolean);
                             const lastSeen = lastSeenTs.length ? new Date(Math.max(...lastSeenTs.map(t => new Date(t).getTime()))).toLocaleString('pt-BR') : '-';
                             return (
-                                <div key={s.id} className="col-12 md:col-6 lg:col-4">
+                                <div key={s.id} className="col-12 sm:col-6 lg:col-4">
                                     <div className="widget-card h-full">
                                         <div className="flex justify-content-between align-items-start">
                                             <div>
@@ -156,7 +156,7 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                                                 </div>
                                             </div>
                                             <div className="col-12 mt-3">
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 align-items-start">
                                                         <MultiSelect
                                                             value={macInputs[s.id] || []}
                                                             options={(detectedBeacons || []).filter(b => {
@@ -169,10 +169,10 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                                                             optionLabel="label"
                                                             optionValue="value"
                                                             placeholder="Selecionar sensores online"
-                                                            className="w-full text-sm"
+                                                            className="flex-1 text-sm min-w-0"
                                                             display="chip"
                                                         />
-                                                        <Button label="Adicionar"  onClick={() => addSensorToSector(s.id, macInputs[s.id] || [])} className="btn-primary text-xs" disabled={!macInputs[s.id] || macInputs[s.id].length === 0} />
+                                                        <Button icon="pi pi-plus" onClick={() => addSensorToSector(s.id, macInputs[s.id] || [])} className="btn-primary w-3rem flex-shrink-0" disabled={!macInputs[s.id] || macInputs[s.id].length === 0} />
                                                     </div>
                                                 <div className="text-xs text-gray-400 mt-1">Também é possível editar o setor para selecionar múltiplos sensores.</div>
                                             </div>
@@ -185,7 +185,7 @@ const SectorsConfigView = ({ sectors, onSave, detectedBeacons }) => {
                 </div>
             </div>
 
-            <Dialog visible={displayDialog} style={{ width: '400px'}} header="Setor" modal className="p-fluid " onHide={() => setDisplayDialog(false)}>
+            <Dialog visible={displayDialog} style={{ width: 'min(400px, 90vw)'}} header="Setor" modal className="p-fluid " onHide={() => setDisplayDialog(false)}>
                 <div className="field mb-3">
                     <label htmlFor="name" className="text-slate-700 font-bold mb-1 block text-xs">Nome</label>
                     <InputText id="name" value={currentSector.name} onChange={(e) => setCurrentSector({ ...currentSector, name: e.target.value })} autoFocus className="border-gray-300 p-2 border-round w-full text-sm" placeholder="Ex: Câmara Fria 01" />
